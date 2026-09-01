@@ -18,7 +18,6 @@ export interface UserDoc {
   isVerified: boolean;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
-  grade: { level: number };
   stats: StatsDoc;
   totals: { votes: number; correctVotes: number };
 }
