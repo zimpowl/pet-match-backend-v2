@@ -1,19 +1,18 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2022",
-    "lib": ["es2022"],
+    "module": "NodeNext",
+    "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
     "outDir": "lib",
     "rootDir": "src",
     "sourceMap": true,
     "strict": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "skipLibCheck": true
+    "target": "es2017"
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "compileOnSave": true,
+  "include": [
+    "src"
+  ]
 }
