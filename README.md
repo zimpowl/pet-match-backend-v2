@@ -36,7 +36,10 @@ se branche sans une ligne de changement.
   `createPetHttp`, `updatePetHttp`, `updateProfileHttp`. Gardes isolés en fonctions pures
   (`core/voteRules.ts`, `core/joinRules.ts`, `core/petInput.ts`), séquences du D83 en
   transaction. **108 tests**, plus tous les refus exercés contre l'émulateur.
-- **L1 — migration** ⬅️ prochaine étape, puis **L4 — cycle de vie**. Voir **`HANDOFF.md`**.
+- **L1 — migration** ✅ écrite et **dry-run passé sur les vraies données** :
+  `src/admin/migrate.ts`, transformations pures testées, 8865 documents à écrire.
+  Rien n'a été posé — deux décisions attendent dans **`HANDOFF.md`**.
+- **L4 — cycle de vie** ⬅️ prochaine étape.
 
 ### Ce que L2 a ajouté au modèle du §3
 

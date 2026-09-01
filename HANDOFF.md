@@ -16,6 +16,9 @@ Quand le doc et les DTO Kotlin diffèrent, **les DTO gagnent**.
   `src/admin/seed.ts`.
 - **L3 — écritures** : `joinContestHttp`, `submitVoteHttp`, `createPetHttp`,
   `updatePetHttp`, `updateProfileHttp`.
+- **L1 — migration** : `src/admin/migrate.ts` écrit, transformations pures
+  testées dans `src/admin/mapping.ts`. **Dry-run passé sur les vraies données
+  de `pet-match---debug` : 8865 documents à écrire.** Rien n'a été posé.
 - **108 tests**, lint et build verts. Tout a été exercé contre l'émulateur
   Firestore, refus compris.
 - **La notion de grade a été retirée partout** (backend et app) : `users.grade`,
@@ -25,26 +28,78 @@ Quand le doc et les DTO Kotlin diffèrent, **les DTO gagnent**.
 Rien n'est commité et rien n'est déployé. Projet par défaut `pet-match---debug`,
 **jamais** la prod (`pet-match-30417`).
 
-## À faire — L1, migration
+## L1 — migration : écrite, dry-run fait, en attente de deux décisions
 
-Script `src/admin/migrate.ts` séparé, **idempotent**, `--dry-run` par défaut,
-même garde anti-prod que `seed.ts`. La table de correspondance champ par champ
-est le **§6 de REFONTE**. Points sensibles :
+```bash
+cd functions && npm run migrate -- --project=pet-match---debug             # compte et signale
+cd functions && npm run migrate -- --project=pet-match---debug --commit    # écrit
+```
 
-- **Re-clé des participants** : ils sont clés par `userUid` et `petUid` est le
-  plus souvent absent. Pour chacun : si `petName` correspond à un pet existant du
-  user, réutiliser son id ; sinon créer `pets/{newId}` depuis les champs
-  dénormalisés (`petName`, `imageUrl`, `petBreed`).
-- **Ordre** : pets d'abord (les participants les référencent), puis contests,
-  participants, judges, votes. Les agrégats `pets.stats` et `users.stats` sont
-  recalculés **en dernier**, une fois toutes les participations re-clées.
-- `difficultyScore` n'est **pas** recalculable rétroactivement (`E` n'a jamais
-  été stocké) → 0 sur tout l'historique.
-- Les nouveaux champs à initialiser sur l'historique : `snapshotAt` (mettre
-  `endAt` pour un concours clos, null sinon), `eloSnapshot` / `votesReceivedSnapshot`
-  (= les valeurs vives pour un concours clos), `votesSnapshot`,
-  `registrationIndex` sur les jurés, `pairKey` sur les votes.
-- Ne **pas** réintroduire `grade` ni `tier`.
+Dry-run sur les vraies données : 18 challenges → 18 concours, 307 participants,
+366 jurés, **7547 votes tous remappés**, 294 animaux mis à jour + 1 créé,
+331 utilisateurs, `counters/sequences` posé. **8865 documents**, aucune
+collision d'identifiant.
+
+### Ce que le §6 ne dit pas, et qui a été relevé dans les données
+
+- **Aucun participant ne porte `petUid`** (0 sur 307). La re-clé passe donc
+  entièrement par le nom de l'animal chez son propriétaire : 306 retrouvés,
+  1 à créer.
+- **Les votes référencent des `userUid`**, pas des `petId` : `leftParticipantId`
+  est l'id du doc participant, lequel est clé par `userUid`. Il faut donc
+  réécrire les trois références, le `pairKey` **et la clé du doc**.
+  Les 7547 se remappent tous.
+- **Les `seenPairs` des jurés** sont aussi des paires de `userUid` (≈ 25 par
+  juré). 272 entrées sur ~9000 référencent un participant absent du concours —
+  probablement des paires vues dont le participant a été supprimé depuis. Elles
+  sont **écartées** plutôt que réécrites au hasard : au pire un juré pourrait
+  revoir une paire dont un animal n'existe plus, et l'appariement ne la servira
+  jamais.
+- **`REWARDED`** est un quatrième statut legacy que le nouveau modèle n'a pas.
+  Il devient `CLOSED` — c'était un concours clos et payé.
+- **`birthDate`** est `null` pour 100 animaux et une date ISO `2019-11-21`
+  pour les autres. Jamais un Timestamp. Tout format inattendu devient `null`
+  plutôt qu'une date inventée.
+- L'animal à créer n'a **aucune espèce** déductible (le participant legacy n'en
+  porte pas) : il est rangé en `DOG` et le rapport le dit.
+
+### Ce que la migration ne peut pas reconstituer
+
+- **`expectedPicked`** n'a jamais été stocké → posé à 0, et le `difficultyScore`
+  de tout l'historique est définitivement perdu (le §6 le dit déjà).
+- **`votesPerDay`** : la répartition quotidienne n'a jamais existé. Posée à
+  zéro ; seul le total (`votes`) est vrai. Conséquence à connaître : un juré
+  d'un concours encore `ACTIVE` récupère une allocation du jour neuve le jour
+  de la migration. Sans effet si la bascule se fait à une frontière de cycle.
+- **`rankPrevious`** : il n'y a pas de « veille » reconstituable, donc `null`.
+  L'écart de 18 h n'existe pas sur l'historique.
+- **Les instantanés** `eloSnapshot` / `votesReceivedSnapshot` / `votesSnapshot`
+  reçoivent les valeurs vives : c'est la seule vérité disponible. `snapshotAt`
+  vaut `endAt` pour un concours clos, `null` sinon.
+
+### ⚠️ Décision à prendre : les 125 anciens `contests`
+
+La collection `contests` de `pet-match---debug` contient déjà **125 documents
+d'une génération antérieure à `challenges`** — schéma `category`, `entryFee`,
+`petMax`, `reward`, `winnerUid`, statuts `FINISHED` / `IN_PROGRESS` /
+`OPEN_FOR_REGISTRATION`, **sans aucune sous-collection**. C'est exactement le
+nom de collection que le §3 vise pour v2.
+
+Aucun de leurs ids ne heurte un id de challenge, donc la migration peut écrire
+sans rien écraser — et la migration **refuse de tourner** si une collision
+apparaît. Les lectures L2 sont par chance épargnées : `orderBy('number')`
+exclut les docs sans ce champ, et `where status == "ACTIVE"` ne matche aucun de
+leurs statuts.
+
+Mais la collection reste sale, et un `count()` sur `contests` mentira. Deux
+issues, et c'est une décision de données, pas de code :
+
+1. **supprimer les 125** — ce sont des données mortes de la v0, remplacées par
+   `challenges` ;
+2. **les laisser** et vivre avec, en sachant que tout comptage global de
+   `contests` est faux.
+
+Rien n'a été supprimé.
 
 ## À faire — L4, cycle de vie
 
