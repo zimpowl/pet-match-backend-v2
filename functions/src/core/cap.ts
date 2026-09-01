@@ -1,15 +1,30 @@
-import { CONTEST_DAYS, DEFAULT_VOTES_PER_DAY } from "./allocation";
-
-export const MAX_VOTES_PER_JUDGE = CONTEST_DAYS * DEFAULT_VOTES_PER_DAY;
-export const PAIR_FRACTION = 3;
+import { CONTEST_DAYS } from "./allocation";
 
 /**
- * Plafond de votes d'un juré sur un concours (§4.3), figé à l'activation.
- * Garde de redondance : au-delà de 21 participants la formule ne mord plus et
- * le plafond vaut 70, soit exactement 7 jours × 10 votes.
+ * Deux paliers, pas une formule (D85). La version calculée
+ * `min(70, round(C(P,2)/3))` est **remplacée** : plus simple à annoncer, plus
+ * simple à régler, et elle garde la propriété qui compte —
+ * `7 jours × allocation = plafond`.
+ *
+ * Les deux valeurs sont **stockées sur le concours** et figées à l'activation
+ * (D41), donc réglables à la main sans redéploiement : une slab sait sous
+ * quelles règles elle a été jouée.
  */
+export const PARTICIPANTS_THRESHOLD = 20;
+export const SMALL_VOTES_PER_DAY = 5;
+export const LARGE_VOTES_PER_DAY = 10;
+export const SMALL_MAX_VOTES_PER_JUDGE = SMALL_VOTES_PER_DAY * CONTEST_DAYS;
+export const LARGE_MAX_VOTES_PER_JUDGE = LARGE_VOTES_PER_DAY * CONTEST_DAYS;
+
+/** Le plafond quand on ne connaît pas encore l'effectif du concours. */
+export const DEFAULT_VOTES_PER_DAY = LARGE_VOTES_PER_DAY;
+
+export function computeVotesPerDay(participants: number): number {
+  return participants > PARTICIPANTS_THRESHOLD ? LARGE_VOTES_PER_DAY : SMALL_VOTES_PER_DAY;
+}
+
 export function computeMaxVotesPerJudge(participants: number): number {
-  if (participants < 2) return 0;
-  const pairs = (participants * (participants - 1)) / 2;
-  return Math.min(MAX_VOTES_PER_JUDGE, Math.round(pairs / PAIR_FRACTION));
+  return participants > PARTICIPANTS_THRESHOLD ?
+    LARGE_MAX_VOTES_PER_JUDGE :
+    SMALL_MAX_VOTES_PER_JUDGE;
 }

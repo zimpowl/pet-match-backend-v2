@@ -1,6 +1,5 @@
 export const DAY_MILLIS = 86_400_000;
 export const CONTEST_DAYS = 7;
-export const DEFAULT_VOTES_PER_DAY = 10;
 
 /**
  * Jour du concours, déduit de son propre `startAt` qui est à 18 h par
@@ -38,4 +37,19 @@ export function secondsToReset(nowMillis: number, startAtMillis: number): number
   const elapsed = nowMillis - startAtMillis;
   const untilNextDay = DAY_MILLIS - (((elapsed % DAY_MILLIS) + DAY_MILLIS) % DAY_MILLIS);
   return Math.ceil(untilNextDay / 1000);
+}
+
+/**
+ * Ramène un `votesPerDay` venu de Firestore à un tableau de sept entiers, quoi
+ * qu'il contienne. Un doc juré écrit par une version antérieure ne doit pas
+ * pouvoir faire sortir une allocation du néant.
+ */
+export function normalizeVotesPerDay(source: readonly number[] | undefined | null): number[] {
+  const result = emptyVotesPerDay();
+  if (!source) return result;
+  for (let day = 0; day < CONTEST_DAYS; day++) {
+    const value = source[day];
+    result[day] = typeof value === "number" && value > 0 ? Math.floor(value) : 0;
+  }
+  return result;
 }

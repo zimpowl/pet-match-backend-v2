@@ -5,6 +5,7 @@ import {
   DAY_MILLIS,
   contestDayIndex,
   emptyVotesPerDay,
+  normalizeVotesPerDay,
   remainingVotesToday,
   secondsToReset,
   totalVotes,
@@ -46,4 +47,14 @@ test("le total posé est la somme du tableau", () => {
 test("la remise tombe au prochain anniversaire", () => {
   assert.equal(secondsToReset(START, START), DAY_MILLIS / 1000);
   assert.equal(secondsToReset(START + DAY_MILLIS / 2, START), DAY_MILLIS / 2000);
+});
+
+test("un votesPerDay douteux est ramené à sept entiers positifs", () => {
+  assert.deepEqual(normalizeVotesPerDay(undefined), [0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(normalizeVotesPerDay([3]), [3, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(
+    normalizeVotesPerDay([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    [1, 2, 3, 4, 5, 6, 7],
+  );
+  assert.deepEqual(normalizeVotesPerDay([-4, 2.7]), [0, 2, 0, 0, 0, 0, 0]);
 });

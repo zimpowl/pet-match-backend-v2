@@ -1,22 +1,30 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_VOTES_PER_JUDGE, computeMaxVotesPerJudge } from "./cap";
+import { CONTEST_DAYS } from "./allocation";
+import {
+  LARGE_MAX_VOTES_PER_JUDGE,
+  SMALL_MAX_VOTES_PER_JUDGE,
+  computeMaxVotesPerJudge,
+  computeVotesPerDay,
+} from "./cap";
 
-test("le plafond suit la table du §4.3", () => {
-  assert.equal(computeMaxVotesPerJudge(10), 15);
+test("deux paliers, pas une formule (D85)", () => {
+  assert.equal(computeMaxVotesPerJudge(10), 35);
   assert.equal(computeMaxVotesPerJudge(15), 35);
-  assert.equal(computeMaxVotesPerJudge(20), 63);
+  assert.equal(computeMaxVotesPerJudge(20), 35);
   assert.equal(computeMaxVotesPerJudge(21), 70);
-  assert.equal(computeMaxVotesPerJudge(25), 70);
   assert.equal(computeMaxVotesPerJudge(30), 70);
+  assert.equal(computeMaxVotesPerJudge(5000), 70);
 });
 
-test("le plafond est atteint dès 21 participants et n'augmente plus", () => {
-  assert.equal(computeMaxVotesPerJudge(21), MAX_VOTES_PER_JUDGE);
-  assert.equal(computeMaxVotesPerJudge(500), MAX_VOTES_PER_JUDGE);
+test("le palier bascule à 21 participants, pas à 20", () => {
+  assert.equal(computeVotesPerDay(20), 5);
+  assert.equal(computeVotesPerDay(21), 10);
 });
 
-test("un concours sans duel possible n'a pas de plafond", () => {
-  assert.equal(computeMaxVotesPerJudge(0), 0);
-  assert.equal(computeMaxVotesPerJudge(1), 0);
+test("sept jours d'allocation font exactement le plafond", () => {
+  assert.equal(computeVotesPerDay(20) * CONTEST_DAYS, SMALL_MAX_VOTES_PER_JUDGE);
+  assert.equal(computeVotesPerDay(21) * CONTEST_DAYS, LARGE_MAX_VOTES_PER_JUDGE);
+  assert.equal(SMALL_MAX_VOTES_PER_JUDGE, 35);
+  assert.equal(LARGE_MAX_VOTES_PER_JUDGE, 70);
 });
