@@ -9,7 +9,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "tsc -p tsconfig.test.json && node --test lib-test/core/*.test.js"
+    "test": "tsc -p tsconfig.test.json && node --test \"lib-test/**/*.test.js\"",
+    "seed": "tsc && node lib/admin/seed.js"
   },
   "engines": {
     "node": "24"

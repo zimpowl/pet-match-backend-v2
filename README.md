@@ -27,21 +27,114 @@ se branche sans une ligne de changement.
 ## État
 
 - **L0 — socle** ✅ `models/` et `core/` : ELO (flottant, D16), allocation quotidienne,
-  plafond, score de difficulté, classements. Aucun endpoint. 24 tests.
-- **L2 — lectures** ⬅️ prochaine étape. `getContests`, `getContest`, `getJudge`,
-  `getPet`, `getVoteSession`, déployées **à côté** des anciennes. Plus un script de
-  seed et les index Firestore. Le §5 fixe le budget de lectures à viser.
-- **L3 — écritures**, **L1 — migration**, **L4 — cycle de vie** : ensuite, dans cet ordre.
-  Les lectures d'abord parce qu'elles seules débloquent la bascule du flag.
+  plafond, score de difficulté, classements.
+- **L2 — lectures** ✅ les cinq endpoints HTTP, déployables **à côté** des anciennes :
+  `getContestsHttp`, `getContestHttp`, `getVoteSessionHttp`, `getJudgeHttp`, `getPetHttp`.
+  Plus `firestore.indexes.json` et un script de seed, vérifiés contre l'émulateur
+  Firestore : pagination, ordres de listes, instantanés, 404/400.
+- **L3 — écritures** ✅ les cinq endpoints POST : `joinContestHttp`, `submitVoteHttp`,
+  `createPetHttp`, `updatePetHttp`, `updateProfileHttp`. Gardes isolés en fonctions pures
+  (`core/voteRules.ts`, `core/joinRules.ts`, `core/petInput.ts`), séquences du D83 en
+  transaction. **108 tests**, plus tous les refus exercés contre l'émulateur.
+- **L1 — migration** ⬅️ prochaine étape, puis **L4 — cycle de vie**. Voir **`HANDOFF.md`**.
+
+### Ce que L2 a ajouté au modèle du §3
+
+L'instantané de 18 h (D54) demande des champs que le §3 n'avait pas : les valeurs
+vives servent l'appariement, les instantanés servent l'écran.
+
+| Doc | Champ | Écrit par |
+|---|---|---|
+| `contests` | `snapshotAt` | le job de 18 h (L4). null = aucun 18 h passé, donc listes en ordre d'inscription inversé (D87) |
+| `.../participants` | `eloSnapshot`, `votesReceivedSnapshot` | le job de 18 h. 1200 et 0 à l'inscription |
+| `.../judges` | `votesSnapshot` | le job de 18 h. 0 à l'inscription |
+| `.../judges` | `registrationIndex` | l'inscription (L3). `JudgeRow` le porte, comme les participants |
+
+### Où vit chaque règle
+
+| Fichier | Règle |
+|---|---|
+| `core/voteRules.ts` | tous les gardes du vote, un type de rejet par raison |
+| `core/joinRules.ts` | D39 — participant en `DRAFT` seulement ; D89 — pas de limite par joueur |
+| `core/petInput.ts` | validation du `PetRequest` ; les champs serveur ne passent jamais |
+| `core/share.ts` | §4.5 bis — le partage des voix, seul retour d'un vote |
+| `core/microchip.ts` | D68 — quinze chiffres, unicité globale, aucun appel externe |
+| `core/cap.ts` | D85 — deux paliers d'allocation, pas une formule |
+| `core/ordering.ts` | D87 — inscription inversée avant le premier classement, classement ensuite |
+| `core/pagination.ts` | D84 — les curseurs des étiquettes, par numéro de concours |
+| `core/pairing.ts` | §4.7 — duels de voisins d'ELO, un animal par session, anti-doublon par juré |
+| `api/mappers.ts` | D54 — tout ce qui classe sort gelé au dernier 18 h ; §4.9 — la justesse n'existe qu'à la clôture |
+| `api/contract.ts` | le contrat de transport, recopié sur les DTO Kotlin |
+| `data/contests.ts` | le budget de lectures du §5 — un `getAll` unique pour tous les blocs `me` |
 
 ## Commandes
 
 ```bash
 cd functions
-npm test     # tsc -p tsconfig.test.json && node --test  (24 tests)
+npm test     # tsc -p tsconfig.test.json && node --test  (108 tests)
 npm run build
 npm run lint
 ```
+
+### La notion de grade a été retirée (partout)
+
+`users.grade`, `pets.grade`, `petGradeAtEntry`, `judgeGradeAtEntry` et `contests.tier`
+n'existent plus, côté backend comme côté app. `tier` est parti avec le reste : son unique
+sémantique était « niveau minimum requis » (D27), donc sans grade il ne gardait rien.
+
+Conséquences à connaître quand la notion reviendra : il n'y a plus de garde de palier à
+l'inscription ni au vote, plus de `petGradeAtEntry` figé sur la slab (D30), et L4 n'a plus
+qu'un seul `DRAFT` à ouvrir par semaine au lieu d'un par palier. Tout est réversible :
+ce sont des champs et un garde, pas une architecture.
+
+### Vérifier les endpoints en local
+
+```bash
+npx firebase emulators:start --only firestore,functions --project pet-match---debug
+```
+
+Puis, dans un autre terminal, seeder l'émulateur et appeler :
+
+```bash
+cd functions && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node lib/admin/seed.js --project=pet-match---debug --commit
+```
+
+```bash
+curl -s "http://127.0.0.1:5001/pet-match---debug/us-central1/getContestsHttp?userUid=zimpo"
+```
+
+### Le seed
+
+`functions/src/admin/seed.ts` pose 816 documents calqués sur `FakeContest.kt` : 14 concours
+(le 14 en `DRAFT`, le 13 en cours, le reste clos), 31 participants et 24 jurés par concours,
+`zimpo` en 8ᵉ position avec `heureux` et `mia`. Une fois seedé, passer `useFakeBackendV2`
+à `false` doit montrer le même écran.
+
+Il est **idempotent** — identifiants fixes, chaque passe réécrit les mêmes documents — et
+**`--dry-run` par défaut** : sans `--commit` il ne fait que compter. Un garde refuse tout
+projet dont l'id ne contient pas « debug ». La prod n'est jamais une cible.
+
+```bash
+npm run seed -- --project=pet-match---debug             # compte à blanc
+npm run seed -- --project=pet-match---debug --commit     # écrit
+```
+
+### Le rendez-vous de 18 h tient-il sept soirs ? (simulé)
+
+Vérifié par simulation sur le vrai code — même ELO, même K, même appariement — 3000 tirages,
+20 participants, 23 jurés, 5 votes/jour :
+
+| Soir | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|
+| le n°1 du soir finit vainqueur | 15 % | 20 % | 25 % | 29 % | 39 % | **51 %** | 100 % |
+| le top 3 a bougé depuis hier | — | 93 % | 86 % | 80 % | 75 % | 72 % | 72 % |
+| part des animaux dont le rang bouge | — | 88 % | 85 % | 83 % | 81 % | 79 % | 79 % |
+
+Le soir 1 ne tranche rien : 11,5 duels par animal sur 81, le meneur du soir 1 ne gagne
+qu'une fois sur sept, et le podium exact est déjà figé dans **0,2 %** des cas. Même au soir 6
+le meneur n'est le vainqueur qu'une fois sur deux. Et il se passe quelque chose **chaque**
+soir : 4 animaux sur 5 changent de rang, le top 3 change de composition trois fois sur quatre.
+C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'ordre ».
 
 ## Points à ne pas perdre de vue
 
@@ -49,7 +142,11 @@ npm run lint
   et jurés sortent dans l'**ordre d'inscription inversé** — dernier inscrit en tête.
   Ensuite, et seulement ensuite, c'est le classement. Le tri est fait côté serveur.
 - **Allocation (D85)** : 5 votes/jour et 35 au total ; 10 et 70 dès que le concours
-  dépasse 20 participants. Des constantes, changées en redéployant.
+  dépasse **20** participants — donc à 20 pile c'est 5, le palier bascule à 21. Les deux
+  valeurs sont **stockées sur le concours** et figées à l'activation (D41), donc réglables
+  à la main sans redéploiement : une slab sait sous quelles règles elle a été jouée.
+  *L0 avait implémenté la formule périmée* `min(70, round(C(P,2)/3))` — à 20 participants
+  elle donnait 63/9 au lieu de 35/5. Corrigé, `core/cap.ts` porte les deux paliers.
 - **Inscription (D89)** : tous les animaux d'un joueur peuvent s'inscrire au même
   concours. La clé `participants/{petUid}` suffit à empêcher le doublon.
 - **Les votes du jour** sont renvoyés dans **chaque** réponse, lecture comme écriture.
@@ -57,3 +154,68 @@ npm run lint
   pour les concours. Incrémentées en transaction, jamais réutilisées.
 - Les **skills Firebase** sont dans `.claude/skills/`. Le skill `firebase-firestore`
   demande d'identifier l'édition de l'instance avant toute chose.
+- **Tout ce qui classe est un instantané de 18 h (D54)** — l'ELO compris. Ce n'est pas
+  « caché avant la clôture », c'est « gelé jusqu'au prochain 18 h ». Concrètement, pour un
+  concours qui démarre dimanche 18 h :
+  - dimanche 18 h → lundi 18 h : tout le monde à **1200 / 0 vote reçu**, aucun rang. C'est
+    la vérité de ce moment, pas une censure.
+  - lundi 18 h → mardi 18 h : l'ELO, les votes reçus et le rang **de lundi 18 h**.
+  - et ainsi de suite, six instantanés puis la clôture. Un concours clos ne bouge plus :
+    on lit ses valeurs vives, elles *sont* définitives.
+
+  Deux lecteurs, un seul est humain : **l'appariement lit `elo` en direct**, l'écran lit
+  `eloSnapshot`. Même règle sur l'écran Concours et sur les profils, sans exception.
+- **Les deux seules choses en direct** : mes votes restants aujourd'hui (`dailyVotes` et
+  `me.votes.cast` — c'est mon budget, pas le classement des autres) et le **pourcentage du
+  duel** que je viens de juger, renvoyé par `submitVote` (§4.5 bis). C'est le seul endroit
+  fun, et ça rend inutile d'aller regarder le concours : le pourcentage y est en temps réel.
+  Jamais d'ELO dans ce retour.
+- **La justesse d'un juré n'est pas gelée, elle est inconnue** avant la clôture (§4.9) :
+  un vote est juste si l'animal choisi finit devant. `correctVotes` reste donc à 0 d'ici là,
+  et le classement s'appelle « jurés les plus actifs » (D11), sur les votes posés — gelés
+  eux aussi.
+- **`firestore.indexes.json` porte aussi les index du legacy** (`challenges`, `votes`,
+  `instagram_posts`). Les deux backends visent le **même** projet : sans ça, un
+  `firebase deploy --only firestore:indexes` depuis ici proposerait de supprimer les index
+  de l'ancien, encore déployé. À nettoyer en L7 seulement.
+- **`.eslintrc.js` a été réaligné sur le style du socle** : 100 colonnes, accolades
+  espacées, pas de JSDoc obligatoire. Le preset `google` seul laissait 115 erreurs sur L0,
+  et `lint` est un `predeploy` — le déploiement échouait avant même de commencer.
+- **Le partage des voix repose souvent sur une poignée de votes.** Mesuré par simulation :
+  la médiane est de **4 votes par duel**, et **une fois sur cinq le juré est le premier** à
+  voir ce duel. `submitVote` renvoie donc `duelVotes` — le compte brut, le vote de
+  l'appelant compris. À 1, l'app doit dire « premier verdict » et non `100 %`, qui se lirait
+  « tout le monde est d'accord avec moi » au lieu de « personne d'autre n'a voté ».
+  Le pourcentage inclut délibérément mon propre vote : l'exclure donnerait `50 % / 50 %` au
+  premier votant, soit « la foule est partagée » alors qu'il n'y a pas de foule.
+  L'affichage est branché côté app (voir `HANDOFF.md`) : à `duelVotes == 1` la page Vote
+  retire les pourcentages, éteint la carte écartée et affiche « Premier verdict » ; sinon
+  « Provisoire · N votes », qui apporte au passage la mention *provisoire* du §4.5 bis.
+- **Un vote est juste si l'animal choisi finit avec un ELO final strictement supérieur à son
+  adversaire de ce duel** — l'ELO **final**, à la clôture, pas celui du moment du vote, et
+  comparé au seul adversaire du duel. Égalité = neutre. Si c'était l'ELO du moment,
+  « je clique toujours sur le plus haut » serait une stratégie parfaite ; comme l'appariement
+  oppose des voisins, copier plafonne à ~55 % contre 87 % pour qui regarde vraiment.
+  Ne pas confondre trois chiffres : `expectedPicked` est la **prédiction** des ELO vifs à
+  l'instant du vote (elle sert au `difficultyScore`), `aSharePercent` est l'**observation**
+  des votes sur cette paire, la justesse est le **verdict** des ELO finaux.
+- **On devient juré au premier vote**, zéro friction : `submitVote` crée
+  `contests/{id}/judges/{uid}` s'il n'existe pas et tire son `judgeNumber` de la séquence
+  globale (D83). Il n'y a pas de `joinAsJudge`. Corollaire du D39 : les participants
+  s'inscrivent en `DRAFT` seulement, les jurés arrivent sur un `ACTIVE` quand ils veulent.
+- **Un juré arrivé en cours de concours est posé dernier**, pas à `rank: null` : Firestore
+  trie les `null` **en premier** en ordre croissant, donc un nouveau juré apparaîtrait en
+  tête du classement jusqu'au 18 h suivant. Avant le premier instantané il reste bien à
+  null, puisque la liste sort alors dans l'ordre d'inscription inversé (D87).
+- **Dans une transaction Firestore, toutes les lectures précèdent toutes les écritures.**
+  `nextSequence` fait une lecture : elle doit être appelée **avant** le premier `set`.
+  C'est le piège qui a cassé `submitVote` au premier essai.
+- **Aucun body POST ne porte de `userUid`** et le client Ktor n'ajoute pas de header
+  `Authorization`. Les endpoints d'écriture le lisent donc dans la query **ou** le body via
+  `http/identity.ts`. Côté app il faut ajouter `@Query("userUid") userUid: String` aux cinq
+  méthodes POST — ça ne touche pas aux `@Serializable`.
+- **Dette de sécurité, à régler avant la prod (L7)** : sans vérification de jeton, n'importe
+  qui peut voter ou modifier un profil au nom de n'importe qui. C'est déjà la posture du
+  legacy, donc pas une régression — mais ça ne doit pas atteindre la prod. Le correctif est
+  `getAuth().verifyIdToken()` dans `http/identity.ts`, un seul fichier.
+- **Firestore `pet-match---debug`** : édition **STANDARD**, type `FIRESTORE_NATIVE`.
