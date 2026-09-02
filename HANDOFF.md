@@ -224,6 +224,23 @@ le seul endroit où le choix se fait ; ajouter l'anglais est un bloc.
    au lancement est le pire taux d'acceptation, après le premier vote convertit
    beaucoup mieux, et déplacer l'appel suffit.
 
+## Deux défauts que l'exécution a révélés
+
+**Le garde anti-collision rendait la migration non rejouable.** Il traitait tout
+`contests/{id}` déjà présent comme une collision — y compris celui que la passe
+précédente venait d'écrire. Les relances étaient donc refusées sans rien
+écrire, ce qui donnait une fausse impression d'idempotence. Il distingue
+maintenant les deux natures : un document portant un `number` est une passe
+précédente (on réécrit, c'est le but), un document sans `number` appartient à
+une génération antérieure (on refuse). Les 125 documents de la v0 n'en
+portaient aucun.
+
+**Le plafond recalculé pouvait être inférieur aux votes réellement posés.** Le
+§6 dit de le recalculer selon le §4.3, mais le legacy en autorisait davantage :
+cinq concours affichaient « 40 votes posés / plafond 35 ». Une slab doit dire
+les règles sous lesquelles elle a été jouée, donc on garde le plus grand des
+deux — la seule borne vraie. 0 incohérence sur 18 après correction.
+
 ## Le piège que la migration a révélé
 
 Une requête de **groupe de collections matche par nom de sous-collection**, sans

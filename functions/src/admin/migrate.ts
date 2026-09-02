@@ -119,7 +119,7 @@ async function main(): Promise<void> {
     db.collection("pets").get(),
     db.collection("users").get(),
     db.collection("challenges").get(),
-    db.collection("contests").select().get(),
+    db.collection("contests").select("number").get(),
   ]);
 
   const legacyPets = new Map<string, LegacyPet>(
@@ -128,7 +128,22 @@ async function main(): Promise<void> {
   const legacyUsers = new Map<string, LegacyUser>(
     usersSnap.docs.map((doc) => [doc.id, doc.data() as LegacyUser]),
   );
-  const existingContestIds = new Set(existingContestsSnap.docs.map((doc) => doc.id));
+  /**
+   * Un `contests/{id}` déjà présent est de deux natures, et il faut les
+   * distinguer sous peine de rendre la migration non rejouable :
+   *
+   * - une **passe précédente de cette migration** — la réécrire est exactement
+   *   ce qu'on veut, c'est la définition d'idempotent ;
+   * - un **vestige d'une génération antérieure**, qu'il ne faut jamais écraser.
+   *
+   * Les seconds n'ont pas de `number` — vérifié sur les 125 documents de la v0,
+   * zéro en portait — les nôtres si.
+   */
+  const foreignContestIds = new Set(
+    existingContestsSnap.docs
+      .filter((doc) => typeof doc.get("number") !== "number")
+      .map((doc) => doc.id),
+  );
 
   const petsByOwner = new Map<string, { petId: string; name: string | undefined }[]>();
   for (const [petId, pet] of legacyPets) {
@@ -164,11 +179,11 @@ async function main(): Promise<void> {
     });
   }
 
-  // Un id de challenge qui heurterait un ancien `contests` écraserait des
-  // données d'une génération antérieure : on refuse plutôt que d'écrire.
   for (const challenge of challenges) {
-    if (existingContestIds.has(challenge.id)) {
-      anomalies.push(`COLLISION : contests/${challenge.id} existe déjà, migration refusée`);
+    if (foreignContestIds.has(challenge.id)) {
+      anomalies.push(
+        `COLLISION : contests/${challenge.id} appartient à une génération antérieure`,
+      );
     }
   }
 
@@ -253,6 +268,17 @@ async function main(): Promise<void> {
 
     const map = petIdByUserUid.get(challenge.id) ?? new Map<string, string>();
     const participantCount = challenge.participants.length;
+
+    // Le §6 dit de recalculer le plafond selon le §4.3, mais le legacy en
+    // autorisait davantage : un juré de l'historique peut avoir posé 40 votes
+    // là où le D85 en donnerait 35, et la jauge afficherait « 40 / 35 ». Une
+    // slab doit dire les règles sous lesquelles elle a été jouée : on garde
+    // donc le plus grand des deux, ce qui est la seule borne vraie.
+    const mostVotesCast = challenge.judges.reduce(
+      (most, judge) => Math.max(most, judge.data.votesCount ?? 0),
+      0,
+    );
+    const cap = Math.max(computeMaxVotesPerJudge(participantCount), mostVotesCast);
     const startAt = millis(challenge.doc.startAt, 0);
     const endAt = millis(challenge.doc.endAt, startAt);
 
@@ -263,7 +289,7 @@ async function main(): Promise<void> {
       createdAt: Timestamp.fromMillis(millis(challenge.doc.createdAt, startAt)),
       startAt: Timestamp.fromMillis(startAt),
       endAt: Timestamp.fromMillis(endAt),
-      maxVotesPerJudge: computeMaxVotesPerJudge(participantCount),
+      maxVotesPerJudge: cap,
       maxVotesPerDay: computeVotesPerDay(participantCount),
       eloKFactor: challenge.doc.eloKFactor ?? DEFAULT_K_FACTOR,
       counts: { participants: participantCount, judges: challenge.judges.length },
@@ -508,7 +534,7 @@ async function main(): Promise<void> {
   // ---- Rapport ------------------------------------------------------------
   console.log(`projet    : ${options.projectId}`);
   console.log(`challenges lus : ${challenges.length}`);
-  console.log(`anciens contests présents : ${existingContestIds.size}`);
+  console.log(`contests d'une génération antérieure : ${foreignContestIds.size}`);
   console.log();
   for (const [key, value] of Object.entries(counts).sort()) {
     console.log(`  ${key.padEnd(28)} ${value}`);
