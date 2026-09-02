@@ -4,3 +4,4 @@ functions/lib/
 .firebase/
 *.log
 lib-test/
+functions/backup/

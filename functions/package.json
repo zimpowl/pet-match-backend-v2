@@ -11,7 +11,8 @@
     "logs": "firebase functions:log",
     "test": "tsc -p tsconfig.test.json && node --test \"lib-test/**/*.test.js\"",
     "seed": "tsc && node lib/admin/seed.js",
-    "migrate": "tsc && node lib/admin/migrate.js"
+    "migrate": "tsc && node lib/admin/migrate.js",
+    "cleanup": "tsc && node lib/admin/cleanup.js"
   },
   "engines": {
     "node": "24"
