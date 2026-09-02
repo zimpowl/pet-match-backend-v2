@@ -39,7 +39,10 @@ se branche sans une ligne de changement.
 - **L1 — migration** ✅ écrite et **dry-run passé sur les vraies données** :
   `src/admin/migrate.ts`, transformations pures testées, 8865 documents à écrire.
   Rien n'a été posé — deux décisions attendent dans **`HANDOFF.md`**.
-- **L4 — cycle de vie** ⬅️ prochaine étape.
+- **L4 — cycle de vie** ✅ `triggers/lifecycle.ts` : un job à 18 h, seule horloge du jeu.
+  Activation du dimanche avec figeage du plafond, instantané du soir, clôture avec calcul
+  de la justesse, médailles et agrégats, ouverture du brouillon suivant (D88). Vérifié
+  contre l'émulateur. **Reste la notification** — voir `HANDOFF.md`.
 
 ### Ce que L2 a ajouté au modèle du §3
 
@@ -57,6 +60,7 @@ vives servent l'appariement, les instantanés servent l'écran.
 
 | Fichier | Règle |
 |---|---|
+| `core/results.ts` | §2.1 — la justesse d'un vote, et elle ne se décide qu'à la clôture |
 | `core/voteRules.ts` | tous les gardes du vote, un type de rejet par raison |
 | `core/joinRules.ts` | D39 — participant en `DRAFT` seulement ; D89 — pas de limite par joueur |
 | `core/petInput.ts` | validation du `PetRequest` ; les champs serveur ne passent jamais |
@@ -210,6 +214,13 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   trie les `null` **en premier** en ordre croissant, donc un nouveau juré apparaîtrait en
   tête du classement jusqu'au 18 h suivant. Avant le premier instantané il reste bien à
   null, puisque la liste sort alors dans l'ordre d'inscription inversé (D87).
+- **`set(..., { merge: true })` n'interprète pas les chemins pointés**, contrairement à
+  `update()`. Écrire `{ "stats.gold": 1 }` dans un `set` crée un champ littéralement nommé
+  `stats.gold` à côté de `stats`. Il faut un objet imbriqué : `{ stats: { gold: 1 } }`, qui
+  se fusionne correctement. C'est le piège qui a silencieusement pollué les documents au
+  premier essai du job de 18 h — aucune erreur, juste des agrégats qui ne bougeaient pas.
+- **`bestRank` est un minimum, et aucun `FieldValue` ne sait faire un minimum.** La clôture
+  relit donc les documents `pets` et `users` au lieu d'incrémenter à l'aveugle.
 - **Dans une transaction Firestore, toutes les lectures précèdent toutes les écritures.**
   `nextSequence` fait une lecture : elle doit être appelée **avant** le premier `set`.
   C'est le piège qui a cassé `submitVote` au premier essai.

@@ -19,6 +19,11 @@ Quand le doc et les DTO Kotlin diffèrent, **les DTO gagnent**.
 - **L1 — migration** : `src/admin/migrate.ts` écrit, transformations pures
   testées dans `src/admin/mapping.ts`. **Dry-run passé sur les vraies données
   de `pet-match---debug` : 8865 documents à écrire.** Rien n'a été posé.
+- **Nettoyage** : les 125 anciens `contests` de la v0 ont été supprimés, après
+  sauvegarde JSON. `matches` (392) et `posts` (688) sont de la même génération
+  morte et restent en place — le script les accepte, la décision est à prendre.
+- **L4 — cycle de vie** : `src/triggers/lifecycle.ts`. Activation, instantané du
+  soir, clôture, ouverture du brouillon suivant. Vérifié contre l'émulateur.
 - **108 tests**, lint et build verts. Tout a été exercé contre l'émulateur
   Firestore, refus compris.
 - **La notion de grade a été retirée partout** (backend et app) : `users.grade`,
@@ -101,27 +106,50 @@ issues, et c'est une décision de données, pas de code :
 
 Rien n'a été supprimé.
 
-## À faire — L4, cycle de vie
+## L4 — ce qui est fait, et ce qui reste
 
-- **Activation** sur `startAt` (dimanche 18 h) : figer `maxVotesPerJudge` et
-  `maxVotesPerDay` avec `computeMaxVotesPerJudge` / `computeVotesPerDay` sur le
-  nombre de participants réel, passer le `DRAFT` en `ACTIVE`, ouvrir le `DRAFT`
-  suivant (un seul, tant que les paliers n'existent pas).
-- **Le job de 18 h (D38)** — un seul pour tout le monde, sept exécutions par
-  cycle. C'est le **seul écrivain** des instantanés :
-  - recopier `rank` → `rankPrevious` sur participants et jurés
-  - recalculer `rank` : participants avec `compareParticipants`, jurés avec
-    `compareJudges` (voir `core/ranking.ts`)
-  - recopier `elo` → `eloSnapshot`, `votesReceived` → `votesReceivedSnapshot`,
-    `votes` → `votesSnapshot`
-  - poser `contests.snapshotAt`
-  - notifier, hors de la boucle du batch
-- **`onContestClosed`** : rangs finaux, médailles (top 3), agrégats
-  `pets.stats` / `users.stats`. Le 7ᵉ soir n'est pas un instantané, c'est la
-  clôture : ELO révélés, slab proposée.
-- La **justesse** des jurés se calcule ici et nulle part ailleurs : un vote est
-  juste si l'animal choisi finit avec un ELO final strictement supérieur à son
-  adversaire. `difficultyScore = Σ (1 − expectedPicked)` sur les votes justes.
+`triggers/lifecycle.ts` expose `dailyCycle` (planifié à 18 h, Europe/Paris) et
+`runCycleHttp` (le même cycle à la main, refusé hors projet de debug). Par
+concours, dans cet ordre :
+
+- **`DRAFT` dont `startAt` est passé → activation.** `maxVotesPerJudge` et
+  `maxVotesPerDay` sont figés **ici** sur l'effectif réel (§4.3, D41) et plus
+  jamais recalculés : une slab doit pouvoir dire sous quelles règles elle a été
+  jouée.
+- **`ACTIVE` dont `endAt` est passé → clôture.** C'est le seul endroit où la
+  justesse se décide. Puis rangs finaux, médailles, agrégats `pets.stats` et
+  `users.stats`, `totals.correctVotes`.
+- **`ACTIVE` en cours → instantané.** `rank` → `rankPrevious`, recalcul des
+  rangs, puis gel de `elo`, `votesReceived` et `votes` dans leurs `*Snapshot`.
+  Rien avant le premier 18 h : il n'y a rien à figer.
+- **Ouverture du brouillon suivant** (D88), après le lot, si aucun `DRAFT`
+  n'existe. Il démarre exactement quand le courant se termine.
+
+Le classement des jurés utilise **le même comparateur** aux deux moments : avant
+la clôture `correctVotes` vaut zéro pour tout le monde, donc `compareJudges`
+dégénère naturellement en « jurés les plus actifs », sur les votes posés (D11).
+
+**Le thème du brouillon suivant** vient d'une file éditoriale,
+`counters/themes.queue`, remplissable à la main sans redéployer. File vide = le
+concours est créé quand même avec un thème provisoire, signalé dans le rapport :
+mieux vaut un concours à renommer qu'une semaine sans concours. C'est une
+décision de conception à confirmer — le doc ne dit pas d'où viennent les thèmes.
+
+### Reste à faire pour finir L4 : la notification
+
+`runCycle` renvoie un `CycleReport` (`activated`, `snapshotted`, `closed`,
+`created`, `warnings`) fait exactement pour ça : les notifications se déclenchent
+**hors de la boucle du batch** (§7), en consommant ce rapport.
+
+Deux choses manquent, et aucune n'est du code de cycle :
+
+1. la plomberie FCM n'est pas encore portée depuis le legacy
+   (`~/WebstormProjects/pet-match-backend/functions/src/api/notification.ts`) ;
+2. le texte des messages est une décision produit. Et le §8 point 6 signale
+   déjà le risque : ~9 notifications par semaine et par joueur (7 résultats de
+   18 h + la clôture + le rappel du samedi). À dégrader en douceur si les
+   désabonnements montent — par exemple ne notifier que si mon rang a bougé, ce
+   que `rankPrevious` permet de savoir sans rien ajouter.
 
 ## À faire — L7, avant la prod
 
@@ -171,6 +199,10 @@ il colle au style des cinq GET qui prennent déjà `userUid` en query.
 
 ## Les pièges déjà payés une fois
 
+- **`set(..., { merge: true })` n'interprète pas les chemins pointés**, à la
+  différence de `update()`. `{ "stats.gold": 1 }` dans un `set` crée un champ
+  nommé `stats.gold` à côté de `stats`. Il faut `{ stats: { gold: 1 } }`.
+  Aucune erreur n'est levée : les agrégats ne bougent simplement pas.
 - **Dans une transaction Firestore, toutes les lectures précèdent toutes les
   écritures.** `nextSequence` fait une lecture : elle doit être appelée avant le
   premier `set`. C'est ce qui a cassé `submitVote` au premier essai.
