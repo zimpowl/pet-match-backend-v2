@@ -16,9 +16,14 @@ Quand le doc et les DTO Kotlin diffèrent, **les DTO gagnent**.
   `src/admin/seed.ts`.
 - **L3 — écritures** : `joinContestHttp`, `submitVoteHttp`, `createPetHttp`,
   `updatePetHttp`, `updateProfileHttp`.
-- **L1 — migration** : `src/admin/migrate.ts` écrit, transformations pures
-  testées dans `src/admin/mapping.ts`. **Dry-run passé sur les vraies données
-  de `pet-match---debug` : 8865 documents à écrire.** Rien n'a été posé.
+- **L1 — migration** ✅ **exécutée sur `pet-match---debug`** : 8865 documents.
+  18 concours, 307 participants, 366 jurés, 7547 votes remappés, 295 animaux,
+  331 utilisateurs, `counters/sequences` posé
+  (`dogs 181, cats 114, judges 114, contests 18`). Idempotence vérifiée par
+  trois exécutions : empreinte des participants identique, et **0 numéro
+  d'animal déplacé sur 295** — la promesse du D83 tient.
+  Sauvegardes préalables dans `functions/backup/` (`pets`, `users`, et les
+  anciens `contests` supprimés).
 - **Nettoyage** : les 125 anciens `contests` de la v0 ont été supprimés, après
   sauvegarde JSON. `matches` (392) et `posts` (688) sont de la même génération
   morte et restent en place — le script les accepte, la décision est à prendre.
@@ -218,6 +223,28 @@ le seul endroit où le choix se fait ; ajouter l'anglais est un bloc.
    était invisible. Le *moment* de la demande reste un levier produit — à froid
    au lancement est le pire taux d'acceptation, après le premier vote convertit
    beaucoup mieux, et déplacer l'appel suffit.
+
+## Le piège que la migration a révélé
+
+Une requête de **groupe de collections matche par nom de sous-collection**, sans
+regarder le parent. Or le legacy et la v2 nomment les leurs pareil. Après
+migration, `collectionGroup("judges")` ramasse donc les 366 documents du legacy
+sous `challenges/` **en plus** des 366 de la v2 — ils portent eux aussi
+`userUid` et `joinedAt`, donc le profil d'un juré listait chaque concours deux
+fois.
+
+Le correctif est dans `loadJudgedContests` : un **second `orderBy` sur
+`registrationIndex`**, que le legacy ne porte pas (0 sur 366). Firestore exclut
+tout document dépourvu d'un champ utilisé dans un `orderBy`, donc il ne passe
+que la v2 — sans dénaturer le tri principal ni inventer un champ marqueur.
+À retirer en L7 avec les sous-collections du legacy.
+
+`loadParticipations` n'avait pas le problème : elle filtre sur `petId`, qu'aucun
+des 307 participants legacy ne porte.
+
+> **L'index composite `judges(userUid, joinedAt, registrationIndex)` doit être
+> déployé** avant que `getJudgeHttp` fonctionne :
+> `firebase deploy --only firestore:indexes`. Rien n'est encore déployé.
 
 ## À faire — L7, avant la prod
 

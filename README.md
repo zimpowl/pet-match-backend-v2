@@ -36,9 +36,8 @@ se branche sans une ligne de changement.
   `createPetHttp`, `updatePetHttp`, `updateProfileHttp`. Gardes isolés en fonctions pures
   (`core/voteRules.ts`, `core/joinRules.ts`, `core/petInput.ts`), séquences du D83 en
   transaction. **108 tests**, plus tous les refus exercés contre l'émulateur.
-- **L1 — migration** ✅ écrite et **dry-run passé sur les vraies données** :
-  `src/admin/migrate.ts`, transformations pures testées, 8865 documents à écrire.
-  Rien n'a été posé — deux décisions attendent dans **`HANDOFF.md`**.
+- **L1 — migration** ✅ **exécutée** sur `pet-match---debug` : 8865 documents,
+  idempotence vérifiée sur trois passes. Sauvegardes dans `functions/backup/`.
 - **L4 — cycle de vie** ✅ `triggers/lifecycle.ts` : un job à 18 h, seule horloge du jeu.
   Activation du dimanche avec figeage du plafond, instantané du soir, clôture avec calcul
   de la justesse, médailles et agrégats, ouverture du brouillon suivant (D88). Vérifié
@@ -229,6 +228,11 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   juré : la nouvelle de son animal prend le titre, sa position de juré tient dans le
   corps. Et un rang immobile hors du podium ne notifie **rien** — une notification vide
   tue l'effet des autres (§8 point 6).
+- **Une requête de groupe de collections matche par nom de sous-collection**, sans
+  regarder le parent. Legacy et v2 nomment les leurs pareil, donc après migration
+  `collectionGroup("judges")` ramasse aussi les documents sous `challenges/`. Le filtre
+  est un second `orderBy` sur `registrationIndex`, que le legacy ne porte pas — Firestore
+  exclut tout document dépourvu d'un champ utilisé dans un `orderBy`. À retirer en L7.
 - **`set(..., { merge: true })` n'interprète pas les chemins pointés**, contrairement à
   `update()`. Écrire `{ "stats.gold": 1 }` dans un `set` crée un champ littéralement nommé
   `stats.gold` à côté de `stats`. Il faut un objet imbriqué : `{ stats: { gold: 1 } }`, qui

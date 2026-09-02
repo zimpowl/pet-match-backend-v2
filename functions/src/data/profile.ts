@@ -40,7 +40,23 @@ export async function loadPets(userUid: string): Promise<LoadedPet[]> {
   return snap.docs.map((doc) => ({ uid: doc.id, doc: doc.data() as PetDoc }));
 }
 
-/** Les concours jugés, du plus récemment rejoint au plus ancien. */
+/**
+ * Les concours jugés, du plus récemment rejoint au plus ancien.
+ *
+ * Le second `orderBy` n'ordonne rien : c'est un **filtre**. Une requête de
+ * groupe de collections matche par *nom* de sous-collection, sans regarder le
+ * parent — donc `judges` ramasse aussi les 366 documents du legacy sous
+ * `challenges/`, qui portent eux aussi `userUid` et `joinedAt`. Comme Firestore
+ * exclut tout document dépourvu d'un champ utilisé dans un `orderBy`, ordonner
+ * en second sur `registrationIndex` — que le legacy n'a pas — ne laisse passer
+ * que les documents v2, sans dénaturer le tri principal ni inventer un champ
+ * marqueur.
+ *
+ * À retirer en L7, quand les sous-collections du legacy disparaîtront.
+ *
+ * (`loadParticipations`, elle, n'a pas ce problème : elle filtre sur `petId`,
+ * qu'aucun participant legacy ne porte.)
+ */
 export async function loadJudgedContests(
   userUid: string,
   limit = PROFILE_CONTESTS_LIMIT,
@@ -49,6 +65,7 @@ export async function loadJudgedContests(
     .collectionGroup(JUDGES)
     .where("userUid", "==", userUid)
     .orderBy("joinedAt", "desc")
+    .orderBy("registrationIndex", "asc")
     .limit(limit)
     .get();
 

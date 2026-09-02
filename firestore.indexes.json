@@ -25,6 +25,10 @@
         {
           "fieldPath": "joinedAt",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "registrationIndex",
+          "order": "ASCENDING"
         }
       ]
     },

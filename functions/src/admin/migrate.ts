@@ -436,6 +436,11 @@ async function main(): Promise<void> {
   }
 
   for (const [petId, pet] of legacyPets) {
+    // Un animal créé par une passe précédente est déjà écrit intégralement
+    // ci-dessus : le réécrire en fusion ne changerait rien mais compterait deux
+    // fois le même document.
+    if (petsToCreate.has(petId)) continue;
+
     const species = mapSpecies(pet.species);
     if (species === null) anomalies.push(`espèce inconnue « ${pet.species} » sur pets/${petId}`);
     const birthDate = parseBirthDate(pet.birthDate);
