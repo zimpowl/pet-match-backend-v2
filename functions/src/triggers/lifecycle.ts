@@ -12,7 +12,12 @@ import {
   VOTES,
   db,
 } from "../firebase";
-import { CONTEST_DAYS, DAY_MILLIS } from "../core/allocation";
+import {
+  CONTEST_DAYS,
+  DAY_MILLIS,
+  contestDayIndex,
+  normalizeVotesPerDay,
+} from "../core/allocation";
 import { computeMaxVotesPerJudge, computeVotesPerDay } from "../core/cap";
 import { DEFAULT_K_FACTOR } from "../core/elo";
 import { compareJudges, compareParticipants, rank as ranked } from "../core/ranking";
@@ -31,7 +36,9 @@ import {
   EveningNews,
   composeClosing,
   composeEvening,
+  composeReminder,
   resolveLocale,
+  shouldRemind,
 } from "../core/notifications";
 import { Delivery, DeliveryReport, deliver, loadRecipients } from "../data/notify";
 
@@ -147,7 +154,7 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
 
     // Un concours qui n'a pas encore vu son premier 18 h n'a rien à figer.
     if (nowMillis < startAt + DAY_MILLIS) continue;
-    await snapshot(doc.ref, contest, startAt, nowMillis, writes, report, news);
+    await snapshot(doc.ref, contest, nowMillis, writes, report, news);
   }
 
   await writes.flush();
@@ -210,7 +217,6 @@ async function activate(
 async function snapshot(
   ref: FirebaseFirestore.DocumentReference,
   contest: ContestDoc,
-  startAt: number,
   nowMillis: number,
   writes: Batcher,
   report: CycleReport,
@@ -224,22 +230,14 @@ async function snapshot(
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
   const rankedJudges = rankJudges(ref, judges.docs, new Map(), writes, true);
 
-  // Le jour affiché est le nombre de journées pleines jouées : « jour 3 ».
-  const day = Math.max(1, Math.floor((nowMillis - startAt) / DAY_MILLIS));
-
   for (const row of rankedPets) {
     // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
     // classé, c'est la nouvelle qui compte pour lui.
     const current = news.evening.get(row.ownerUid);
     if (current?.pet && (current.pet.rank ?? Infinity) <= row.rank) continue;
     news.evening.set(row.ownerUid, {
-      day,
-      pet: {
-        name: row.petName,
-        rank: row.rank,
-        rankPrevious: row.rankPrevious,
-        total: rankedPets.length,
-      },
+      theme: contest.theme,
+      pet: { name: row.petName, rank: row.rank, rankPrevious: row.rankPrevious },
       judge: current?.judge ?? null,
     });
     news.contestUidByUser.set(row.ownerUid, ref.id);
@@ -248,14 +246,9 @@ async function snapshot(
   for (const row of rankedJudges) {
     const current = news.evening.get(row.userUid);
     news.evening.set(row.userUid, {
-      day,
+      theme: contest.theme,
       pet: current?.pet ?? null,
-      judge: {
-        rank: row.rank,
-        rankPrevious: row.rankPrevious,
-        total: rankedJudges.length,
-        dailyCapacity: contest.maxVotesPerDay,
-      },
+      judge: { rank: row.rank, rankPrevious: row.rankPrevious },
     });
     news.contestUidByUser.set(row.userUid, ref.id);
   }
@@ -305,12 +298,14 @@ async function close(
   const participantRanks = new Map(rankedPets.map((row) => [row.petId, row.rank]));
   const judgeRanks = new Map(rankedJudges.map((row) => [row.userUid, row.rank]));
 
+  // La clôture ne dit que la clôture : le nom de l'animal et le fait d'avoir
+  // jugé suffisent. Tout le reste est le dénouement, et il est dans l'app.
   for (const row of rankedPets) {
     const current = news.closing.get(row.ownerUid);
-    if (current?.pet && (current.pet.rank ?? Infinity) <= row.rank) continue;
     news.closing.set(row.ownerUid, {
-      pet: { name: row.petName, rank: row.rank, total: rankedPets.length, elo: row.elo },
-      judge: current?.judge ?? null,
+      theme: contest.theme,
+      petName: current?.petName ?? row.petName,
+      wasJudge: current?.wasJudge ?? false,
     });
     news.contestUidByUser.set(row.ownerUid, ref.id);
   }
@@ -318,13 +313,9 @@ async function close(
   for (const row of rankedJudges) {
     const current = news.closing.get(row.userUid);
     news.closing.set(row.userUid, {
-      pet: current?.pet ?? null,
-      judge: {
-        rank: row.rank,
-        total: rankedJudges.length,
-        votes: row.votes,
-        correctVotes: row.correctVotes,
-      },
+      theme: contest.theme,
+      petName: current?.petName ?? null,
+      wasJudge: true,
     });
     news.contestUidByUser.set(row.userUid, ref.id);
   }
@@ -602,11 +593,75 @@ async function announce(news: Announcements): Promise<DeliveryReport> {
   return deliver(deliveries);
 }
 
+/**
+ * Le rappel de l'après-midi. L'allocation ne se cumule pas : ce qui n'est pas
+ * posé avant 18 h est perdu (D37). On ne réveille donc que le juré qui **n'a
+ * rien posé aujourd'hui** — celui qui a déjà voté n'a rien à rattraper, et
+ * celui qui est « Complet » ne peut plus rien poser.
+ *
+ * C'est un rappel auto-limitant : il ne touche que ceux qui ont décroché, donc
+ * un assidu n'en reçoit jamais.
+ */
+export async function runReminders(nowMillis: number): Promise<DeliveryReport> {
+  const contests = await db.collection(CONTESTS).where("status", "==", "ACTIVE").get();
+  const deliveries: Delivery[] = [];
+
+  for (const doc of contests.docs) {
+    const contest = doc.data() as ContestDoc;
+    const day = contestDayIndex(nowMillis, toMillisOrZero(contest.startAt));
+    if (day === null) continue;
+
+    const judges = await doc.ref.collection(JUDGES).get();
+    const candidates = judges.docs.filter((judgeDoc) => {
+      const judge = judgeDoc.data() as ContestJudgeDoc;
+      return shouldRemind({
+        votesToday: normalizeVotesPerDay(judge.votesPerDay)[day] ?? 0,
+        votesCast: judge.votes,
+        maxVotesPerJudge: contest.maxVotesPerJudge,
+        dailyCapacity: contest.maxVotesPerDay,
+      });
+    });
+    if (candidates.length === 0) continue;
+
+    const recipients = await loadRecipients(candidates.map((judgeDoc) => judgeDoc.id));
+    for (const judgeDoc of candidates) {
+      const recipient = recipients.get(judgeDoc.id);
+      if (!recipient) continue;
+
+      const notification = composeReminder(
+        { theme: contest.theme, dailyCapacity: contest.maxVotesPerDay },
+        resolveLocale(recipient.locale),
+      );
+      if (!notification) continue;
+
+      deliveries.push({
+        recipient,
+        notification,
+        data: { contestUid: doc.id, kind: "REMINDER" },
+      });
+    }
+  }
+
+  return deliver(deliveries);
+}
+
 /** Le rendez-vous quotidien. Un seul job pour tous les concours (D28). */
 export const dailyCycle = onSchedule(
   { schedule: "0 18 * * *", timeZone: "Europe/Paris", maxInstances: 1 },
   async () => {
     const report = await runCycle(Date.now());
+    console.log(JSON.stringify(report));
+  },
+);
+
+/**
+ * Trois heures avant la bascule. Assez tôt pour qu'un joueur ait le temps de
+ * poser ses votes, assez tard pour que la journée ait eu sa chance.
+ */
+export const dailyReminder = onSchedule(
+  { schedule: "0 15 * * *", timeZone: "Europe/Paris", maxInstances: 1 },
+  async () => {
+    const report = await runReminders(Date.now());
     console.log(JSON.stringify(report));
   },
 );
@@ -623,5 +678,17 @@ export const runCycleHttp = onRequest({ cors: true }, (req, res) =>
       throw forbidden("ce déclenchement manuel est réservé aux projets de debug");
     }
     return runCycle(Date.now());
+  }),
+);
+
+/** Le rappel, déclenchable à la main. Mêmes restrictions. */
+export const runRemindersHttp = onRequest({ cors: true }, (req, res) =>
+  respond(res as unknown as JsonResponse, async () => {
+    const project = process.env.GCLOUD_PROJECT ?? "";
+    const emulated = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+    if (!emulated && !/debug/i.test(project)) {
+      throw forbidden("ce déclenchement manuel est réservé aux projets de debug");
+    }
+    return runReminders(Date.now());
   }),
 );

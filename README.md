@@ -216,9 +216,12 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   tête du classement jusqu'au 18 h suivant. Avant le premier instantané il reste bien à
   null, puisque la liste sort alors dans l'ordre d'inscription inversé (D87).
 - **Le registre des notifications n'est pas négociable** : aucun emoji, aucun point
-  d'exclamation, aucune félicitation. Le luxe ne complimente pas, il constate. On écrit
-  comme un bulletin de résultats — factuel, court — et c'est le fait qui touche l'ego.
-  Un test vérifie l'absence d'emoji, de `!` et de « bravo ».
+  d'exclamation, aucune félicitation, **vouvoiement**. Le luxe ne complimente pas, il
+  constate. Des tests vérifient l'absence d'emoji, de `!`, de « bravo » et de tutoiement.
+- **La notification constate le changement, jamais le rang** (§4.2 bis) : donner le rang
+  rendrait l'ouverture de l'app inutile et tuerait le rendez-vous de 18 h. Le fait est
+  dans l'app, la notification n'est qu'une invitation. Un test vérifie qu'aucun chiffre
+  ne fuite. La clôture, elle, ne dit **que** la clôture — en révéler le sens l'éventerait.
 - **On ne genre jamais l'animal** : le doc participant ne porte pas son sexe, et se
   tromper est pire que tout. « Heureux tient la première place » accorde l'adjectif avec
   « place », jamais avec l'animal. Toute formule gendrée est un bug.

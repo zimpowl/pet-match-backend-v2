@@ -3,16 +3,22 @@
  *
  * Registre, et il n'est pas négociable : **aucun emoji, aucun point
  * d'exclamation, aucune félicitation**. Le luxe ne complimente pas, il
- * constate. On écrit comme le bulletin de résultats d'un vrai concours —
- * factuel, court, précis — et c'est le fait lui-même qui touche l'ego :
- * le nom de l'animal, le mouvement, le rang.
+ * constate. On vouvoie, comme un concours vouvoie ses concurrents.
  *
- * Deux règles de rédaction qui viennent du domaine, pas du goût :
+ * **La notification constate le changement, jamais le rang.** C'est le §4.2 bis :
+ * « c'est le compte à rebours qui fait revenir, pas un aperçu — la tension est
+ * dans l'inconnu ». Donner le rang rendrait l'ouverture de l'app inutile et
+ * tuerait le rendez-vous de 18 h. Le fait est dans l'app ; la notification n'est
+ * qu'une invitation à l'ouvrir.
  *
- * - **On ne genre jamais l'animal.** Le doc participant ne porte pas son sexe,
- *   et se tromper est pire que tout. « Heureux tient la première place » fait
- *   accorder l'adjectif avec « place », jamais avec l'animal.
- * - **On tutoie**, comme le reste de l'app (« Tu as posé tes 70 votes »).
+ * Le thème est toujours **cité**, jamais accolé nu à un verbe : les thèmes
+ * réels sont « Pleine lune », « Cadrage serré », et « Pleine lune est clos »
+ * serait fautif. On garde une espace ordinaire dans les guillemets plutôt que
+ * l'espace fine insécable de la typographie française : une espace fine mal
+ * rendue dans un volet de notification serait pire que son absence.
+ *
+ * Et **on ne genre jamais l'animal** : le doc participant ne porte pas son sexe,
+ * et se tromper est pire que tout. Toute formule gendrée est un bug.
  */
 
 export type Locale = "fr";
@@ -25,185 +31,179 @@ export interface Notification {
 export interface Standing {
   readonly rank: number | null;
   readonly rankPrevious: number | null;
-  readonly total: number;
 }
 
 export interface EveningNews {
-  /** Journées pleines jouées au dernier 18 h : 1 à 6. */
-  readonly day: number;
+  readonly theme: string;
   readonly pet: (Standing & { readonly name: string }) | null;
-  readonly judge: (Standing & { readonly dailyCapacity: number }) | null;
-}
-
-export interface ClosingPet {
-  readonly name: string;
-  readonly rank: number | null;
-  readonly total: number;
-  readonly elo: number;
+  readonly judge: Standing | null;
 }
 
 export interface ClosingNews {
-  readonly pet: ClosingPet | null;
-  readonly judge: {
-    readonly rank: number | null;
-    readonly total: number;
-    readonly votes: number;
-    readonly correctVotes: number;
-  } | null;
+  readonly theme: string;
+  readonly petName: string | null;
+  readonly wasJudge: boolean;
 }
 
-/** Le podium est une nouvelle chaque soir, même immobile. Le reste, non. */
-function isNews(standing: Standing | null): boolean {
-  if (!standing || standing.rank === null) return false;
-  if (standing.rank <= 3) return true;
-  return standing.rankPrevious !== null && standing.rankPrevious !== standing.rank;
+export interface ReminderNews {
+  readonly theme: string;
+  readonly dailyCapacity: number;
+}
+
+type Direction = "UP" | "DOWN" | "HELD_PODIUM" | "NOTHING";
+
+/**
+ * Un rang immobile **hors du podium** n'est pas une nouvelle : rien n'a bougé à
+ * l'écran, donc « venez découvrir votre rang » mentirait. Sur le podium, si —
+ * « tient-il encore sa place » est une vraie tension.
+ */
+function direction(standing: Standing | null): Direction {
+  if (!standing || standing.rank === null) return "NOTHING";
+  const previous = standing.rankPrevious;
+  if (previous === null || previous === standing.rank) {
+    return standing.rank <= 3 ? "HELD_PODIUM" : "NOTHING";
+  }
+  // Le rang baisse quand on progresse.
+  return previous > standing.rank ? "UP" : "DOWN";
 }
 
 export function resolveLocale(raw: string | null | undefined): Locale {
   void raw;
-  // Une seule langue pour l'instant. Le jour où il y en a deux, c'est ici que
-  // le choix se fait, et nulle part ailleurs.
+  // Une seule langue pour l'instant. Le jour où il y en a deux, le choix se
+  // fait ici et nulle part ailleurs.
   return "fr";
 }
 
 /**
- * Le résultat du soir. Un joueur qui est à la fois participant et juré reçoit
- * **une seule** notification : la nouvelle de son animal porte le titre, sa
- * position de juré et la relance de ses votes tiennent dans le corps. Sept
- * notifications par semaine suffisent déjà (§8 point 6).
- *
- * Renvoie null quand il n'y a rien à dire — un rang immobile hors du podium
- * n'est pas une nouvelle, et une notification vide tue l'effet des autres.
+ * Le résultat du soir. Un joueur ne reçoit qu'**une** notification, même s'il
+ * est à la fois participant et juré : son animal prend le titre — c'est
+ * l'accroche la plus forte — et son jury tient dans le corps. Un assidu en
+ * reçoit environ six par semaine ; séparer les rôles en ferait onze, et le
+ * §8 point 6 signale déjà neuf comme un risque.
  */
 export function composeEvening(news: EveningNews, locale: Locale): Notification | null {
   void locale;
-  const pet = isNews(news.pet) ? news.pet : null;
-  const judge = isNews(news.judge) ? news.judge : null;
-  if (!pet && !judge) return null;
+  const pet = direction(news.pet);
+  const judge = direction(news.judge);
+  if (pet === "NOTHING" && judge === "NOTHING") return null;
 
-  const evening = `au soir du jour ${news.day}`;
-
-  if (pet) {
-    const body = [
-      `${position(pet.rank)} sur ${pet.total}, ${evening}.`,
-      judge ? judgeSentence(judge) : null,
-      news.judge ? allocationSentence(news.judge.dailyCapacity) : null,
-    ]
-      .filter((line): line is string => line !== null)
-      .join(" ");
-
-    return { title: petTitle(pet.name, pet), body };
+  if (pet !== "NOTHING" && news.pet) {
+    const also = judge === "NOTHING" ? null : judgeClause(judge);
+    const invitation = also ? "Venez découvrir vos rangs." : "Venez découvrir son rang.";
+    return {
+      title: petTitle(news.pet.name, pet),
+      body: [`${contestName(news.theme)}.`, also, invitation]
+        .filter((part): part is string => part !== null)
+        .join(" "),
+    };
   }
 
-  const standing = judge as Standing & { dailyCapacity: number };
-  const place = `${position(standing.rank)} sur ${standing.total}, ${evening}.`;
   return {
-    title: judgeTitle(standing),
-    body: `${place} ${allocationSentence(standing.dailyCapacity)}`,
+    title: judgeTitle(judge),
+    body: `${contestName(news.theme)}. Venez découvrir votre rang.`,
   };
 }
 
 /**
- * La clôture. Elle notifie toujours, podium ou pas : c'est le dénouement, l'ELO
- * y est révélé — il devient le chiffre de la slab (D44) — et le juré a sa slab
- * à chaque clôture, médaille ou non (D64).
+ * La clôture. On dit **seulement** que le concours est clos : c'est le
+ * dénouement, et en révéler quoi que ce soit — sens, rang, médaille — l'évente.
+ * Le juré a une slab à chaque clôture, médaille ou pas (D64), donc le message
+ * est le même pour tout le monde.
  */
 export function composeClosing(news: ClosingNews, locale: Locale): Notification | null {
   void locale;
+  if (!news.petName && !news.wasJudge) return null;
 
-  if (news.pet) {
-    const { name, rank, total, elo } = news.pet;
-    const lines = [`${position(rank)} sur ${total}, ELO ${Math.round(elo)}.`];
-    if (news.judge) lines.push(judgeClosingSentence(news.judge));
-    lines.push("Ta slab est disponible.");
+  const waiting =
+    news.petName && news.wasJudge ?
+      `Le résultat de ${news.petName} et le vôtre vous attendent.` :
+      news.petName ?
+        `Le résultat de ${news.petName} vous attend.` :
+        "Votre résultat de juré vous attend.";
 
-    return {
-      title: `${name} termine à la ${ordinalFeminine(rank)} place`,
-      body: lines.join(" "),
-    };
+  return { title: `Le concours ${quoted(news.theme)} est clos`, body: waiting };
+}
+
+/**
+ * Le rappel de l'après-midi, quelques heures avant la bascule. Envoyé **au seul
+ * juré qui n'a rien posé aujourd'hui** : l'allocation ne se cumule pas, ce qui
+ * n'est pas posé avant 18 h est perdu (D37). C'est le seul endroit où un
+ * chiffre est donné, et c'est légitime — c'est son budget, pas un classement.
+ */
+export function composeReminder(news: ReminderNews, locale: Locale): Notification | null {
+  void locale;
+  if (news.dailyCapacity <= 0) return null;
+
+  return {
+    title: `Vos ${spell(news.dailyCapacity)} votes du jour expirent à 18 h`,
+    body: `${contestName(news.theme)}. Ce qui n'est pas posé est perdu.`,
+  };
+}
+
+function quoted(theme: string): string {
+  return `« ${theme.trim()} »`;
+}
+
+/** Le thème cité, pour qu'aucun verbe ne s'y accole directement. */
+function contestName(theme: string): string {
+  return `Concours ${quoted(theme)}`;
+}
+
+/** Accordé avec « place » ou « classement », donc jamais avec l'animal. */
+function petTitle(name: string, moved: Direction): string {
+  switch (moved) {
+  case "UP":
+    return `${name} est monté au classement`;
+  case "DOWN":
+    return `${name} est descendu au classement`;
+  default:
+    return `${name} garde sa place sur le podium`;
   }
+}
 
-  if (news.judge) {
-    return {
-      title: `Tu termines à la ${ordinalFeminine(news.judge.rank)} place du jury`,
-      body: `${judgeClosingSentence(news.judge)} Ta slab est disponible.`,
-    };
+function judgeTitle(moved: Direction): string {
+  switch (moved) {
+  case "UP":
+    return "Vous êtes monté au classement du jury";
+  case "DOWN":
+    return "Vous êtes descendu au classement du jury";
+  default:
+    return "Vous gardez votre place sur le podium du jury";
   }
-
-  return null;
 }
 
-function petTitle(name: string, standing: Standing): string {
-  const moved = movement(standing);
-  if (moved > 0) return `${name} gagne ${places(moved)}`;
-  if (moved < 0) return `${name} perd ${places(-moved)}`;
-  return `${name} tient la ${ordinalFeminine(standing.rank)} place`;
+function judgeClause(moved: Direction): string {
+  switch (moved) {
+  case "UP":
+    return "Vous êtes également monté au jury.";
+  case "DOWN":
+    return "Vous avez reculé au jury.";
+  default:
+    return "Vous gardez votre place sur le podium du jury.";
+  }
 }
 
-function judgeTitle(standing: Standing): string {
-  const moved = movement(standing);
-  if (moved > 0) return `Tu gagnes ${places(moved)} au jury`;
-  if (moved < 0) return `Tu perds ${places(-moved)} au jury`;
-  return `Tu tiens la ${ordinalFeminine(standing.rank)} place du jury`;
-}
-
-function judgeSentence(standing: Standing): string {
-  const moved = movement(standing);
-  if (moved > 0) return `Au jury, tu gagnes ${places(moved)} et tu es ${position(standing.rank)}.`;
-  if (moved < 0) return `Au jury, tu perds ${places(-moved)} et tu es ${position(standing.rank)}.`;
-  return `Au jury, tu tiens la ${ordinalFeminine(standing.rank)} place.`;
-}
-
-function judgeClosingSentence(judge: {
-  votes: number;
-  correctVotes: number;
-  rank: number | null;
-  total: number;
-}): string {
-  const accuracy = judge.votes > 0 ? Math.round((judge.correctVotes / judge.votes) * 100) : 0;
-  return `${judge.correctVotes} votes justes sur ${judge.votes}, précision ${accuracy} %.`;
-}
-
-function allocationSentence(capacity: number): string {
-  return `Tes ${spell(capacity)} votes du jour sont ouverts.`;
-}
-
-/** Positif = on remonte. Le rang baisse quand on progresse. */
-function movement(standing: Standing): number {
-  if (standing.rank === null || standing.rankPrevious === null) return 0;
-  return standing.rankPrevious - standing.rank;
-}
-
-function places(count: number): string {
-  return count === 1 ? "une place" : `${spell(count)} places`;
-}
-
-/** Les petits nombres s'écrivent en lettres ; les rangs restent en chiffres. */
+/** Les petits nombres s'écrivent en lettres. */
 function spell(value: number): string {
   const words = [
-    "zéro", "une", "deux", "trois", "quatre", "cinq",
+    "zéro", "un", "deux", "trois", "quatre", "cinq",
     "six", "sept", "huit", "neuf", "dix",
   ];
   return words[value] ?? String(value);
 }
 
-/** `1er`, `2e`, `3e`… tel que l'app les formate déjà (§4.10). */
-function position(rank: number | null): string {
-  if (rank === null) return "non classé";
-  return rank === 1 ? "1er" : `${rank}e`;
-}
-
-/** Accordé avec « place », donc féminin, donc jamais avec l'animal. */
-function ordinalFeminine(rank: number | null): string {
-  if (rank === null) return "dernière";
-  switch (rank) {
-  case 1:
-    return "première";
-  case 2:
-    return "deuxième";
-  case 3:
-    return "troisième";
-  default:
-    return `${rank}e`;
-  }
+/**
+ * Faut-il rappeler ce juré ? Seulement s'il n'a **rien** posé aujourd'hui et
+ * qu'il lui reste de la place sous le plafond du concours : dire « venez voter »
+ * à quelqu'un qui est « Complet » serait le pire des messages.
+ */
+export function shouldRemind(input: {
+  readonly votesToday: number;
+  readonly votesCast: number;
+  readonly maxVotesPerJudge: number;
+  readonly dailyCapacity: number;
+}): boolean {
+  if (input.votesToday > 0) return false;
+  if (input.dailyCapacity <= 0) return false;
+  return input.votesCast < input.maxVotesPerJudge;
 }

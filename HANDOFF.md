@@ -144,18 +144,40 @@ que FCM refuse** — sinon on repaye l'échec à chaque cycle et pour toujours.
 L'envoi a lieu **après** l'écriture : un échec d'envoi ne défait jamais un
 classement.
 
-Ce que le joueur reçoit :
+**La notification constate le changement, jamais le rang.** C'est le §4.2 bis :
+« c'est le compte à rebours qui fait revenir, pas un aperçu — la tension est
+dans l'inconnu ». Donner le rang rendrait l'ouverture de l'app inutile et
+tuerait le rendez-vous de 18 h. Le fait est dans l'app ; la notification n'est
+qu'une invitation à l'ouvrir. Un test vérifie qu'aucun chiffre ne fuite.
 
 | Moment | Titre | Corps |
 |---|---|---|
-| soir, il remonte | `Heureux gagne trois places` | `4e sur 31, au soir du jour 3.` |
-| soir, il recule | `Heureux perd sept places` | `8e sur 31, au soir du jour 3.` |
-| soir, podium immobile | `Uno tient la première place` | `1er sur 31, au soir du jour 3.` |
+| soir, il monte | `Heureux est monté au classement` | `Concours « Pleine lune ». Venez découvrir son rang.` |
+| soir, il descend | `Heureux est descendu au classement` | idem |
+| soir, podium immobile | `Uno garde sa place sur le podium` | idem |
 | soir, immobile hors podium | — | *rien* |
-| soir, juré seul | `Tu perds trois places au jury` | `9e sur 24, au soir du jour 3. Tes cinq votes du jour sont ouverts.` |
-| clôture, vainqueur | `Uno termine à la première place` | `1er sur 31, ELO 1300. Ta slab est disponible.` |
-| clôture, sans médaille | `Heureux termine à la 8e place` | `8e sur 31, ELO 1237. Ta slab est disponible.` |
-| clôture, juré | `Tu termines à la deuxième place du jury` | `58 votes justes sur 70, précision 83 %. Ta slab est disponible.` |
+| soir, juré seul | `Vous êtes monté au classement du jury` | `Concours « Pleine lune ». Venez découvrir votre rang.` |
+| soir, participant **et** juré | `Heureux est monté au classement` | `Concours « Pleine lune ». Vous êtes également monté au jury. Venez découvrir vos rangs.` |
+| 15 h, rien posé | `Vos dix votes du jour expirent à 18 h` | `Concours « Pleine lune ». Ce qui n'est pas posé est perdu.` |
+| clôture | `Le concours « Pleine lune » est clos` | `Le résultat de Heureux et le vôtre vous attendent.` |
+
+**Le rappel de 15 h** (`dailyReminder`, trois heures avant la bascule) ne touche
+que le juré qui **n'a rien posé aujourd'hui** et qui n'est pas « Complet » :
+dire « venez voter » à quelqu'un qui ne peut plus poser serait le pire des
+messages. Il est auto-limitant — un assidu n'en reçoit jamais.
+
+**Une notification par joueur et par soir**, même participant et juré à la
+fois. L'arithmétique : un assidu reçoit ~5 soirs où son rang bouge (mesuré à
+~80 % des soirs) + 1 clôture = **6 par semaine**, et 0 rappel. Séparé par rôle,
+ce serait **~11**, quand le §8 point 6 signale déjà 9 comme un risque.
+
+**Un rang immobile hors du podium ne notifie rien** : rien n'a bougé à l'écran,
+donc « venez découvrir votre rang » mentirait. Sur le podium si — tenir sa place
+est une vraie tension.
+
+**Vouvoiement partout**, notifications et app. Les trois chaînes de l'app qui
+tutoyaient ont été basculées : un décalage de registre se voit, et c'est ça qui
+fait cheap.
 
 ### La langue
 
