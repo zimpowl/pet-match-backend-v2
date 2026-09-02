@@ -273,6 +273,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
     createdAt: stamp(START - 600 * DAY_MILLIS),
     fcmToken: null,
     isVerified: false,
+    locale: null,
     judgeNumber: null,
     judgeSince: null,
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },

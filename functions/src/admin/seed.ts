@@ -120,6 +120,7 @@ function buildUser(
     createdAt: stamp(createdAt),
     fcmToken: null,
     isVerified: false,
+    locale: "fr",
     judgeNumber,
     judgeSince: judgeSince === null ? null : stamp(judgeSince),
     stats,

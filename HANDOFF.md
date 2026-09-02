@@ -23,7 +23,8 @@ Quand le doc et les DTO Kotlin diffèrent, **les DTO gagnent**.
   sauvegarde JSON. `matches` (392) et `posts` (688) sont de la même génération
   morte et restent en place — le script les accepte, la décision est à prendre.
 - **L4 — cycle de vie** : `src/triggers/lifecycle.ts`. Activation, instantané du
-  soir, clôture, ouverture du brouillon suivant. Vérifié contre l'émulateur.
+  soir, clôture, ouverture du brouillon suivant, **et notifications**. Vérifié
+  contre l'émulateur.
 - **108 tests**, lint et build verts. Tout a été exercé contre l'émulateur
   Firestore, refus compris.
 - **La notion de grade a été retirée partout** (backend et app) : `users.grade`,
@@ -135,21 +136,52 @@ concours est créé quand même avec un thème provisoire, signalé dans le rapp
 mieux vaut un concours à renommer qu'une semaine sans concours. C'est une
 décision de conception à confirmer — le doc ne dit pas d'où viennent les thèmes.
 
-### Reste à faire pour finir L4 : la notification
+### La notification est faite
 
-`runCycle` renvoie un `CycleReport` (`activated`, `snapshotted`, `closed`,
-`created`, `warnings`) fait exactement pour ça : les notifications se déclenchent
-**hors de la boucle du batch** (§7), en consommant ce rapport.
+`core/notifications.ts` porte la copie, pure et testée au mot près ;
+`data/notify.ts` envoie via `sendEach` par lots de 500 et **efface les jetons
+que FCM refuse** — sinon on repaye l'échec à chaque cycle et pour toujours.
+L'envoi a lieu **après** l'écriture : un échec d'envoi ne défait jamais un
+classement.
 
-Deux choses manquent, et aucune n'est du code de cycle :
+Ce que le joueur reçoit :
 
-1. la plomberie FCM n'est pas encore portée depuis le legacy
-   (`~/WebstormProjects/pet-match-backend/functions/src/api/notification.ts`) ;
-2. le texte des messages est une décision produit. Et le §8 point 6 signale
-   déjà le risque : ~9 notifications par semaine et par joueur (7 résultats de
-   18 h + la clôture + le rappel du samedi). À dégrader en douceur si les
-   désabonnements montent — par exemple ne notifier que si mon rang a bougé, ce
-   que `rankPrevious` permet de savoir sans rien ajouter.
+| Moment | Titre | Corps |
+|---|---|---|
+| soir, il remonte | `Heureux gagne trois places` | `4e sur 31, au soir du jour 3.` |
+| soir, il recule | `Heureux perd sept places` | `8e sur 31, au soir du jour 3.` |
+| soir, podium immobile | `Uno tient la première place` | `1er sur 31, au soir du jour 3.` |
+| soir, immobile hors podium | — | *rien* |
+| soir, juré seul | `Tu perds trois places au jury` | `9e sur 24, au soir du jour 3. Tes cinq votes du jour sont ouverts.` |
+| clôture, vainqueur | `Uno termine à la première place` | `1er sur 31, ELO 1300. Ta slab est disponible.` |
+| clôture, sans médaille | `Heureux termine à la 8e place` | `8e sur 31, ELO 1237. Ta slab est disponible.` |
+| clôture, juré | `Tu termines à la deuxième place du jury` | `58 votes justes sur 70, précision 83 %. Ta slab est disponible.` |
+
+### La langue
+
+Le signal est **la langue du téléphone**, pas le pays : un Français à Berlin
+veut du français, et `countryCode` parle de l'animal (ICAD), pas de la lecture.
+`users.locale` a donc été ajouté au modèle — **l'app doit l'écrire** depuis la
+locale de l'appareil.
+
+La copie reste **côté serveur**, keyée par locale, plutôt que dans des
+`title_loc_key` résolus par le téléphone. Le loc_key est la réponse de manuel et
+il rend l'ajout d'une langue gratuit côté backend, mais il déplace le texte dans
+l'app : la typographie y dériverait, et surtout **corriger un mot demanderait
+une release du store**. Pour un produit dont l'identité est la retenue
+typographique, un déploiement de backend est le bon prix. `resolveLocale()` est
+le seul endroit où le choix se fait ; ajouter l'anglais est un bloc.
+
+### Ce qui reste côté app
+
+1. **écrire `users.locale`** à la connexion, depuis la langue de l'appareil ;
+2. **déclarer un canal de notification Android** — il n'y en a aucun
+   aujourd'hui, donc FCM retombe sur un canal par défaut. Un canal nommé
+   (« Résultats de 18 h ») laisse le joueur le régler, et c'est ce qui distingue
+   une notification soignée d'une notification subie. Une fois déclaré, passer
+   son `channelId` côté serveur ;
+3. **consommer le `data`** (`contestUid`, `kind`) pour ouvrir le concours sur le
+   joueur au tap (§4.11).
 
 ## À faire — L7, avant la prod
 

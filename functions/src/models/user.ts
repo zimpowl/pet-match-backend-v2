@@ -16,6 +16,12 @@ export interface UserDoc {
   createdAt: firestore.Timestamp;
   fcmToken: string | null;
   isVerified: boolean;
+  /**
+   * Langue de lecture, écrite par l'app depuis la langue du téléphone. C'est
+   * le bon signal : un Français à Berlin veut du français, et `countryCode`
+   * parle de l'animal (ICAD), pas de la langue. Absent = français.
+   */
+  locale: string | null;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

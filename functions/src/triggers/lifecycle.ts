@@ -26,6 +26,14 @@ import {
   ContestVoteDoc,
 } from "../models/contest";
 import { JsonResponse, forbidden, respond } from "../http/respond";
+import {
+  ClosingNews,
+  EveningNews,
+  composeClosing,
+  composeEvening,
+  resolveLocale,
+} from "../core/notifications";
+import { Delivery, DeliveryReport, deliver, loadRecipients } from "../data/notify";
 
 /**
  * 18 h est la seule horloge du jeu (§4.2 bis). Un concours démarre à 18 h, il
@@ -52,6 +60,18 @@ export interface CycleReport {
   closed: string[];
   created: string[];
   warnings: string[];
+  notifications: DeliveryReport;
+}
+
+/**
+ * Ce qu'il y a à annoncer, accumulé pendant que le cycle écrit. Un joueur ne
+ * reçoit qu'**une** notification par concours et par soir, même s'il est à la
+ * fois participant et juré : la clé de cette carte est son uid.
+ */
+interface Announcements {
+  readonly evening: Map<string, EveningNews>;
+  readonly closing: Map<string, ClosingNews>;
+  readonly contestUidByUser: Map<string, string>;
 }
 
 interface Batcher {
@@ -90,8 +110,14 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
     closed: [],
     created: [],
     warnings: [],
+    notifications: { sent: 0, failed: 0, withoutToken: 0, tokensCleared: 0 },
   };
   const writes = batcher();
+  const news: Announcements = {
+    evening: new Map(),
+    closing: new Map(),
+    contestUidByUser: new Map(),
+  };
 
   const contests = await db
     .collection(CONTESTS)
@@ -110,21 +136,25 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
 
     if (contest.status === "DRAFT") {
       if (startAt > nowMillis) continue;
-      await activate(doc.ref, contest, writes, report);
+      await activate(doc.ref, writes, report);
       continue;
     }
 
     if (endAt <= nowMillis) {
-      await close(doc.ref, contest, writes, report);
+      await close(doc.ref, contest, writes, report, news);
       continue;
     }
 
     // Un concours qui n'a pas encore vu son premier 18 h n'a rien à figer.
     if (nowMillis < startAt + DAY_MILLIS) continue;
-    await snapshot(doc.ref, nowMillis, writes, report);
+    await snapshot(doc.ref, contest, startAt, nowMillis, writes, report, news);
   }
 
   await writes.flush();
+
+  // Les notifications sont envoyées **après** l'écriture, hors de la boucle du
+  // batch (§7) : un échec d'envoi ne doit jamais défaire un classement.
+  report.notifications = await announce(news);
 
   // L'ouverture du brouillon suivant se fait après le reste : elle a besoin du
   // numéro de séquence, et elle ne doit pas être rejouée si le lot a échoué.
@@ -145,7 +175,6 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
  */
 async function activate(
   ref: FirebaseFirestore.DocumentReference,
-  contest: ContestDoc,
   writes: Batcher,
   report: CycleReport,
 ): Promise<void> {
@@ -180,17 +209,56 @@ async function activate(
  */
 async function snapshot(
   ref: FirebaseFirestore.DocumentReference,
+  contest: ContestDoc,
+  startAt: number,
   nowMillis: number,
   writes: Batcher,
   report: CycleReport,
+  news: Announcements,
 ): Promise<void> {
   const [participants, judges] = await Promise.all([
     ref.collection(PARTICIPANTS).get(),
     ref.collection(JUDGES).get(),
   ]);
 
-  rankParticipants(ref, participants.docs, writes, true);
-  rankJudges(ref, judges.docs, new Map(), writes, true);
+  const rankedPets = rankParticipants(ref, participants.docs, writes, true);
+  const rankedJudges = rankJudges(ref, judges.docs, new Map(), writes, true);
+
+  // Le jour affiché est le nombre de journées pleines jouées : « jour 3 ».
+  const day = Math.max(1, Math.floor((nowMillis - startAt) / DAY_MILLIS));
+
+  for (const row of rankedPets) {
+    // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
+    // classé, c'est la nouvelle qui compte pour lui.
+    const current = news.evening.get(row.ownerUid);
+    if (current?.pet && (current.pet.rank ?? Infinity) <= row.rank) continue;
+    news.evening.set(row.ownerUid, {
+      day,
+      pet: {
+        name: row.petName,
+        rank: row.rank,
+        rankPrevious: row.rankPrevious,
+        total: rankedPets.length,
+      },
+      judge: current?.judge ?? null,
+    });
+    news.contestUidByUser.set(row.ownerUid, ref.id);
+  }
+
+  for (const row of rankedJudges) {
+    const current = news.evening.get(row.userUid);
+    news.evening.set(row.userUid, {
+      day,
+      pet: current?.pet ?? null,
+      judge: {
+        rank: row.rank,
+        rankPrevious: row.rankPrevious,
+        total: rankedJudges.length,
+        dailyCapacity: contest.maxVotesPerDay,
+      },
+    });
+    news.contestUidByUser.set(row.userUid, ref.id);
+  }
 
   writes.set(ref, { snapshotAt: Timestamp.fromMillis(nowMillis) }, true);
   report.snapshotted.push(ref.id);
@@ -206,6 +274,7 @@ async function close(
   contest: ContestDoc,
   writes: Batcher,
   report: CycleReport,
+  news: Announcements,
 ): Promise<void> {
   const [participants, judges, votes] = await Promise.all([
     ref.collection(PARTICIPANTS).get(),
@@ -231,8 +300,34 @@ async function close(
 
   const results = judgeResults(counted, eloByPetId);
 
-  const participantRanks = rankParticipants(ref, participants.docs, writes, true);
-  const judgeRanks = rankJudges(ref, judges.docs, results, writes, true);
+  const rankedPets = rankParticipants(ref, participants.docs, writes, true);
+  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true);
+  const participantRanks = new Map(rankedPets.map((row) => [row.petId, row.rank]));
+  const judgeRanks = new Map(rankedJudges.map((row) => [row.userUid, row.rank]));
+
+  for (const row of rankedPets) {
+    const current = news.closing.get(row.ownerUid);
+    if (current?.pet && (current.pet.rank ?? Infinity) <= row.rank) continue;
+    news.closing.set(row.ownerUid, {
+      pet: { name: row.petName, rank: row.rank, total: rankedPets.length, elo: row.elo },
+      judge: current?.judge ?? null,
+    });
+    news.contestUidByUser.set(row.ownerUid, ref.id);
+  }
+
+  for (const row of rankedJudges) {
+    const current = news.closing.get(row.userUid);
+    news.closing.set(row.userUid, {
+      pet: current?.pet ?? null,
+      judge: {
+        rank: row.rank,
+        total: rankedJudges.length,
+        votes: row.votes,
+        correctVotes: row.correctVotes,
+      },
+    });
+    news.contestUidByUser.set(row.userUid, ref.id);
+  }
 
   // Médailles et agrégats. Un podium est une médaille, et une médaille est une
   // médaille : or, argent et bronze pèsent pareil pour les compteurs (D55).
@@ -300,12 +395,21 @@ function nextStats(current: unknown, rankValue: number | null): StatsDoc {
   };
 }
 
+interface RankedPet {
+  readonly petId: string;
+  readonly ownerUid: string;
+  readonly petName: string;
+  readonly rank: number;
+  readonly rankPrevious: number | null;
+  readonly elo: number;
+}
+
 function rankParticipants(
   ref: FirebaseFirestore.DocumentReference,
   docs: readonly FirebaseFirestore.QueryDocumentSnapshot[],
   writes: Batcher,
   freeze: boolean,
-): Map<string, number | null> {
+): RankedPet[] {
   const rows = docs.map((doc) => {
     const data = doc.data() as ContestParticipantDoc;
     return {
@@ -319,11 +423,18 @@ function rankParticipants(
   });
 
   const order = ranked(rows, compareParticipants);
-  const result = new Map<string, number | null>();
+  const result: RankedPet[] = [];
 
   order.forEach((row, index) => {
     const rankValue = index + 1;
-    result.set(row.petId, rankValue);
+    result.push({
+      petId: row.petId,
+      ownerUid: row.data.ownerUid,
+      petName: row.data.petName,
+      rank: rankValue,
+      rankPrevious: row.data.rank ?? null,
+      elo: row.data.elo,
+    });
     writes.set(
       ref.collection(PARTICIPANTS).doc(row.petId),
       {
@@ -343,13 +454,21 @@ function rankParticipants(
   return result;
 }
 
+interface RankedJudge {
+  readonly userUid: string;
+  readonly rank: number;
+  readonly rankPrevious: number | null;
+  readonly votes: number;
+  readonly correctVotes: number;
+}
+
 function rankJudges(
   ref: FirebaseFirestore.DocumentReference,
   docs: readonly FirebaseFirestore.QueryDocumentSnapshot[],
   results: ReadonlyMap<string, { correctVotes: number; difficultyScore: number }>,
   writes: Batcher,
   freeze: boolean,
-): Map<string, number | null> {
+): RankedJudge[] {
   const rows = docs.map((doc) => {
     const data = doc.data() as ContestJudgeDoc;
     const result = results.get(doc.id);
@@ -364,11 +483,17 @@ function rankJudges(
   });
 
   const order = ranked(rows, compareJudges);
-  const result = new Map<string, number | null>();
+  const result: RankedJudge[] = [];
 
   order.forEach((row, index) => {
     const rankValue = index + 1;
-    result.set(row.userUid, rankValue);
+    result.push({
+      userUid: row.userUid,
+      rank: rankValue,
+      rankPrevious: row.data.rank ?? null,
+      votes: row.data.votes,
+      correctVotes: row.correctVotes,
+    });
     writes.set(
       ref.collection(JUDGES).doc(row.userUid),
       {
@@ -442,6 +567,39 @@ async function openNextDraft(
   });
 
   return created;
+}
+
+/**
+ * L'annonce. La clôture prime sur le résultat du soir : c'est le dénouement,
+ * et un même joueur ne doit pas recevoir les deux.
+ */
+async function announce(news: Announcements): Promise<DeliveryReport> {
+  const userUids = [...new Set([...news.closing.keys(), ...news.evening.keys()])];
+  const recipients = await loadRecipients(userUids);
+  const deliveries: Delivery[] = [];
+
+  for (const userUid of userUids) {
+    const recipient = recipients.get(userUid);
+    if (!recipient) continue;
+
+    const locale = resolveLocale(recipient.locale);
+    const closing = news.closing.get(userUid);
+    const notification = closing ?
+      composeClosing(closing, locale) :
+      composeEvening(news.evening.get(userUid) as EveningNews, locale);
+    if (!notification) continue;
+
+    deliveries.push({
+      recipient,
+      notification,
+      data: {
+        contestUid: news.contestUidByUser.get(userUid) ?? "",
+        kind: closing ? "CLOSING" : "EVENING",
+      },
+    });
+  }
+
+  return deliver(deliveries);
 }
 
 /** Le rendez-vous quotidien. Un seul job pour tous les concours (D28). */

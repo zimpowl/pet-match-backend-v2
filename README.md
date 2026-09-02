@@ -42,7 +42,7 @@ se branche sans une ligne de changement.
 - **L4 — cycle de vie** ✅ `triggers/lifecycle.ts` : un job à 18 h, seule horloge du jeu.
   Activation du dimanche avec figeage du plafond, instantané du soir, clôture avec calcul
   de la justesse, médailles et agrégats, ouverture du brouillon suivant (D88). Vérifié
-  contre l'émulateur. **Reste la notification** — voir `HANDOFF.md`.
+  contre l'émulateur, notification comprise.
 
 ### Ce que L2 a ajouté au modèle du §3
 
@@ -60,6 +60,7 @@ vives servent l'appariement, les instantanés servent l'écran.
 
 | Fichier | Règle |
 |---|---|
+| `core/notifications.ts` | la copie des notifications, testée au mot près |
 | `core/results.ts` | §2.1 — la justesse d'un vote, et elle ne se décide qu'à la clôture |
 | `core/voteRules.ts` | tous les gardes du vote, un type de rejet par raison |
 | `core/joinRules.ts` | D39 — participant en `DRAFT` seulement ; D89 — pas de limite par joueur |
@@ -214,6 +215,17 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   trie les `null` **en premier** en ordre croissant, donc un nouveau juré apparaîtrait en
   tête du classement jusqu'au 18 h suivant. Avant le premier instantané il reste bien à
   null, puisque la liste sort alors dans l'ordre d'inscription inversé (D87).
+- **Le registre des notifications n'est pas négociable** : aucun emoji, aucun point
+  d'exclamation, aucune félicitation. Le luxe ne complimente pas, il constate. On écrit
+  comme un bulletin de résultats — factuel, court — et c'est le fait qui touche l'ego.
+  Un test vérifie l'absence d'emoji, de `!` et de « bravo ».
+- **On ne genre jamais l'animal** : le doc participant ne porte pas son sexe, et se
+  tromper est pire que tout. « Heureux tient la première place » accorde l'adjectif avec
+  « place », jamais avec l'animal. Toute formule gendrée est un bug.
+- **Une notification par joueur et par soir**, même s'il est à la fois participant et
+  juré : la nouvelle de son animal prend le titre, sa position de juré tient dans le
+  corps. Et un rang immobile hors du podium ne notifie **rien** — une notification vide
+  tue l'effet des autres (§8 point 6).
 - **`set(..., { merge: true })` n'interprète pas les chemins pointés**, contrairement à
   `update()`. Écrire `{ "stats.gold": 1 }` dans un `set` crée un champ littéralement nommé
   `stats.gold` à côté de `stats`. Il faut un objet imbriqué : `{ stats: { gold: 1 } }`, qui
