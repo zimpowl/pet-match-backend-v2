@@ -236,10 +236,30 @@ une génération antérieure (on refuse). Les 125 documents de la v0 n'en
 portaient aucun.
 
 **Le plafond recalculé pouvait être inférieur aux votes réellement posés.** Le
-§6 dit de le recalculer selon le §4.3, mais le legacy en autorisait davantage :
-cinq concours affichaient « 40 votes posés / plafond 35 ». Une slab doit dire
-les règles sous lesquelles elle a été jouée, donc on garde le plus grand des
-deux — la seule borne vraie. 0 incohérence sur 18 après correction.
+legacy en autorisait davantage : cinq concours affichaient « 40 votes posés /
+plafond 35 ». **L'historique doit se lire comme du v2**, donc le plafond reste
+celui du D85 (35 ou 70) et les compteurs de l'historique y sont **ramenés**.
+L'information perdue est le surplus au-delà du plafond, sur des concours clos
+dont les rangs sont déjà figés : elle ne sert plus à rien. 0 incohérence sur 18.
+
+**Le numéro de l'animal ressuscité ne suivait pas l'ancienneté.** L'animal créé
+par la re-clé recevait `Date.now()` comme date de tri, donc le dernier numéro,
+alors que le D83 veut que le numéro suive l'ancienneté. Il prend maintenant la
+date de son inscription : chiens **et** chats sont numérotés 1..n dans l'ordre
+de création, et la numérotation est entièrement déterministe.
+
+### L'historique se lit comme du v2
+
+Vérifié sur les données réelles après migration :
+
+| | |
+|---|---|
+| concours | numérotés 1 à 18 dans l'ordre de leur `startAt` — la chaîne hebdomadaire réelle (18 mai, 25 mai, 1ᵉʳ juin…). `createdAt` a des ex aequo, `startAt` non |
+| animaux | 181 chiens et 114 chats, numérotés 1..n dans l'ordre de création, séquences séparées (D83) |
+| jurés | 114, numérotés dans l'ordre de leur première participation |
+| plafonds | 35 sur dix concours, 70 sur huit, selon le D85. Aucun `cast > limit` |
+| médailles | 28 animaux et 16 jurés médaillés, or/argent/bronze depuis les rangs 1/2/3 |
+| meilleur rang | 82 animaux sans médaille mais avec un `bestRank` |
 
 ## Le piège que la migration a révélé
 

@@ -220,10 +220,18 @@ async function main(): Promise<void> {
       createdAtMillis: millis(pet.createdAt, 0),
     });
   }
-  for (const petId of petsToCreate.keys()) {
+  for (const [petId, created] of petsToCreate) {
     // Le participant legacy ne porte aucune espèce : il n'y a rien à déduire.
     // On range l'animal créé chez les chiens, et le rapport le signale.
-    allPets.set(petId, { species: "DOG", createdAtMillis: Date.now() });
+    //
+    // Sa date est celle de son inscription, **pas** `Date.now()` : le numéro
+    // suit l'ancienneté (D83), donc un animal ressuscité d'un vieux concours
+    // doit prendre sa place chronologique et non la dernière. C'est aussi ce
+    // qui rend la numérotation entièrement déterministe.
+    allPets.set(petId, {
+      species: "DOG",
+      createdAtMillis: millis(created.source.createdAt, 0),
+    });
   }
 
   const dogNumbers = assignNumbers(
@@ -269,16 +277,13 @@ async function main(): Promise<void> {
     const map = petIdByUserUid.get(challenge.id) ?? new Map<string, string>();
     const participantCount = challenge.participants.length;
 
-    // Le §6 dit de recalculer le plafond selon le §4.3, mais le legacy en
-    // autorisait davantage : un juré de l'historique peut avoir posé 40 votes
-    // là où le D85 en donnerait 35, et la jauge afficherait « 40 / 35 ». Une
-    // slab doit dire les règles sous lesquelles elle a été jouée : on garde
-    // donc le plus grand des deux, ce qui est la seule borne vraie.
-    const mostVotesCast = challenge.judges.reduce(
-      (most, judge) => Math.max(most, judge.data.votesCount ?? 0),
-      0,
-    );
-    const cap = Math.max(computeMaxVotesPerJudge(participantCount), mostVotesCast);
+    // Le plafond est celui du §4.3 / D85, sans exception : l'historique doit se
+    // lire comme du v2. Le legacy en autorisait davantage — jusqu'à 40 là où le
+    // D85 en donne 35 — donc les compteurs de l'historique sont **ramenés** au
+    // plafond, sans quoi une jauge afficherait « 40 / 35 ». L'information
+    // perdue est le surplus au-delà du plafond, sur des concours clos dont les
+    // rangs sont déjà figés : elle ne sert plus à rien.
+    const cap = computeMaxVotesPerJudge(participantCount);
     const startAt = millis(challenge.doc.startAt, 0);
     const endAt = millis(challenge.doc.endAt, startAt);
 
@@ -362,8 +367,8 @@ async function main(): Promise<void> {
 
     for (const judge of challenge.judges) {
       const data = judge.data;
-      const votes = data.votesCount ?? 0;
-      const correctVotes = data.finalCorrectVotes ?? 0;
+      const votes = Math.min(data.votesCount ?? 0, cap);
+      const correctVotes = Math.min(data.finalCorrectVotes ?? 0, votes);
       const rank = data.finalRank ?? null;
 
       const seenPairs: string[] = [];
