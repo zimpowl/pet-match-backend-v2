@@ -194,16 +194,30 @@ une release du store**. Pour un produit dont l'identité est la retenue
 typographique, un déploiement de backend est le bon prix. `resolveLocale()` est
 le seul endroit où le choix se fait ; ajouter l'anglais est un bloc.
 
-### Ce qui reste côté app
+### Côté app : fait
 
-1. **écrire `users.locale`** à la connexion, depuis la langue de l'appareil ;
-2. **déclarer un canal de notification Android** — il n'y en a aucun
-   aujourd'hui, donc FCM retombe sur un canal par défaut. Un canal nommé
-   (« Résultats de 18 h ») laisse le joueur le régler, et c'est ce qui distingue
-   une notification soignée d'une notification subie. Une fois déclaré, passer
-   son `channelId` côté serveur ;
-3. **consommer le `data`** (`contestUid`, `kind`) pour ouvrir le concours sur le
-   joueur au tap (§4.11).
+1. **`users.locale` part avec le jeton FCM**, en un seul appel. L'ancien
+   `updateFcmToken` devient `registerDevice` → `registerDeviceHttp` (v2). Le nom
+   diffère volontairement de `updateFcmTokenHttp`, qui appartient au legacy et
+   ne doit pas être écrasé pendant la transition. Une langue illisible est
+   **ignorée**, jamais écrite : elle effacerait une langue valide.
+2. **Deux canaux de notification** : `petmatch_results` (importance haute) et
+   `petmatch_reminders` (importance normale). Le joueur peut couper le rappel de
+   l'après-midi sans perdre le résultat de 18 h. Ils sont créés dans
+   `Application.onCreate` et **non** à la première notification : en
+   arrière-plan, le SDK Firebase affiche lui-même les messages et lit le canal
+   déclaré au manifeste — s'il n'existe pas encore, il retombe sur « Divers ».
+3. **Le tap ouvre le concours sur le joueur** (D86) :
+   `petmatch://contest/{contestUid}?petUid=…` ou `?judgeUid=…`. `contestUid` est
+   un champ requis de la route, donc il va dans le **chemin** ; les autres sont
+   optionnels, donc en query. Vérifié sur l'émulateur : le carrousel s'ouvre
+   centré sur l'animal.
+4. **`POST_NOTIFICATIONS` est enfin demandé.** L'app ne le demandait nulle part :
+   depuis Android 13, sans cette permission le système range l'app à
+   `importance=NONE` et **rien** ne s'affiche. Tout le travail de notification
+   était invisible. Le *moment* de la demande reste un levier produit — à froid
+   au lancement est le pire taux d'acceptation, après le premier vote convertit
+   beaucoup mieux, et déplacer l'appel suffit.
 
 ## À faire — L7, avant la prod
 

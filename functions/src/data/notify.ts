@@ -73,7 +73,17 @@ export async function deliver(deliveries: readonly Delivery[]): Promise<Delivery
           body: delivery.notification.body,
         },
         data: delivery.data,
-        android: { priority: "high" as const, notification: { sound: "default" } },
+        android: {
+          priority: "high" as const,
+          notification: {
+            sound: "default",
+            // Deux canaux : le joueur doit pouvoir couper le rappel de
+            // l'après-midi sans perdre le résultat de 18 h.
+            channelId: delivery.data.kind === "REMINDER" ?
+              "petmatch_reminders" :
+              "petmatch_results",
+          },
+        },
         apns: { payload: { aps: { sound: "default" } } },
       })),
     );

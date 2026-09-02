@@ -67,10 +67,20 @@ function direction(standing: Standing | null): Direction {
   return previous > standing.rank ? "UP" : "DOWN";
 }
 
+/**
+ * Range une étiquette BCP 47 venue de l'appareil (« fr-FR », « en-GB ») en une
+ * langue qu'on sait servir. On garde la valeur normalisée même si on ne la sert
+ * pas encore : c'est la mesure qui dira quand une deuxième langue vaut le coup.
+ */
+export function normalizeLocale(raw: string): string | null {
+  const tag = raw.trim().toLowerCase().replace(/_/g, "-");
+  return /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(tag) ? tag : null;
+}
+
 export function resolveLocale(raw: string | null | undefined): Locale {
   void raw;
-  // Une seule langue pour l'instant. Le jour où il y en a deux, le choix se
-  // fait ici et nulle part ailleurs.
+  // Une seule langue servie pour l'instant. Le jour où il y en a deux, le choix
+  // se fait ici et nulle part ailleurs.
   return "fr";
 }
 

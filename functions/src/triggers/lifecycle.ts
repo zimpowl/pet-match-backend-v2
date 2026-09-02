@@ -79,6 +79,8 @@ interface Announcements {
   readonly evening: Map<string, EveningNews>;
   readonly closing: Map<string, ClosingNews>;
   readonly contestUidByUser: Map<string, string>;
+  /** L'animal sur lequel ouvrir le concours au tap, quand le joueur en a un. */
+  readonly petUidByUser: Map<string, string>;
 }
 
 interface Batcher {
@@ -124,6 +126,7 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
     evening: new Map(),
     closing: new Map(),
     contestUidByUser: new Map(),
+    petUidByUser: new Map(),
   };
 
   const contests = await db
@@ -241,6 +244,7 @@ async function snapshot(
       judge: current?.judge ?? null,
     });
     news.contestUidByUser.set(row.ownerUid, ref.id);
+    news.petUidByUser.set(row.ownerUid, row.petId);
   }
 
   for (const row of rankedJudges) {
@@ -308,6 +312,7 @@ async function close(
       wasJudge: current?.wasJudge ?? false,
     });
     news.contestUidByUser.set(row.ownerUid, ref.id);
+    news.petUidByUser.set(row.ownerUid, row.petId);
   }
 
   for (const row of rankedJudges) {
@@ -561,6 +566,31 @@ async function openNextDraft(
 }
 
 /**
+ * Le payload que l'app consomme. `kind` choisit le canal de notification, et
+ * `deepLink` ouvre le concours au tap — la route `RootRoute.Contest` le déclare.
+ *
+ * `contestUid` est un champ **requis** de la route, donc il va dans le chemin ;
+ * `petUid` et `judgeUid` sont optionnels, donc en query. Et on n'ouvre jamais un
+ * concours « en général » : on l'ouvre **sur quelqu'un** (D86) — sur l'animal du
+ * joueur s'il en a un en course, sinon sur sa ligne de juré.
+ */
+function deepLinkData(
+  contestUid: string,
+  kind: string,
+  target: { petUid?: string; judgeUid?: string } = {},
+): Record<string, string> {
+  if (!contestUid) return { contestUid, kind, deepLink: "petmatch://app" };
+
+  const query = target.petUid ?
+    `?petUid=${encodeURIComponent(target.petUid)}` :
+    target.judgeUid ?
+      `?judgeUid=${encodeURIComponent(target.judgeUid)}` :
+      "";
+
+  return { contestUid, kind, deepLink: `petmatch://contest/${contestUid}${query}` };
+}
+
+/**
  * L'annonce. La clôture prime sur le résultat du soir : c'est le dénouement,
  * et un même joueur ne doit pas recevoir les deux.
  */
@@ -583,10 +613,11 @@ async function announce(news: Announcements): Promise<DeliveryReport> {
     deliveries.push({
       recipient,
       notification,
-      data: {
-        contestUid: news.contestUidByUser.get(userUid) ?? "",
-        kind: closing ? "CLOSING" : "EVENING",
-      },
+      data: deepLinkData(
+        news.contestUidByUser.get(userUid) ?? "",
+        closing ? "CLOSING" : "EVENING",
+        { petUid: news.petUidByUser.get(userUid), judgeUid: userUid },
+      ),
     });
   }
 
@@ -637,7 +668,7 @@ export async function runReminders(nowMillis: number): Promise<DeliveryReport> {
       deliveries.push({
         recipient,
         notification,
-        data: { contestUid: doc.id, kind: "REMINDER" },
+        data: deepLinkData(doc.id, "REMINDER", { judgeUid: judgeDoc.id }),
       });
     }
   }
