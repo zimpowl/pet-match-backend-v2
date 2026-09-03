@@ -48,6 +48,12 @@ export interface ContestMeWire {
    * d'ELO (D17).
    */
   elo: number;
+  /**
+   * Le compagnon obligatoire de l'ELO : « un ELO a besoin d'un compagnon, pas
+   * d'un dénominateur » (§4.9, D62). Nombre de fois **choisi**, pas nombre
+   * d'apparitions. Gelé comme l'ELO.
+   */
+  votesReceived: number;
 }
 
 /** La brique commune : feed, profil, carousel, mini slab. */

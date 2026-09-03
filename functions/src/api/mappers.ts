@@ -52,6 +52,9 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       elo: contest.status === "CLOSED" ?
         participant.elo :
         participant.eloSnapshot ?? DEFAULT_ELO,
+      votesReceived: contest.status === "CLOSED" ?
+        participant.votesReceived :
+        participant.votesReceivedSnapshot ?? 0,
     };
   }
 
@@ -62,8 +65,9 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       registrationIndex: judge.registrationIndex,
       pet: null,
       votes: judgeVotes(contest, judge),
-      // Pas d'ELO pour les jurés (D17).
+      // Pas d'ELO pour les jurés (D17), et rien de reçu : ils donnent.
       elo: 0,
+      votesReceived: 0,
     };
   }
 
@@ -74,6 +78,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     pet: null,
     votes: null,
     elo: 0,
+    votesReceived: 0,
   };
 }
 

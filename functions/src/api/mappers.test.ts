@@ -95,6 +95,7 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
     pet: null,
     votes: null,
     elo: 0,
+    votesReceived: 0,
   });
 });
 
@@ -123,6 +124,17 @@ test("l'ELO de mon animal suit la même règle d'instantané (D54)", () => {
 
   assert.equal(running.elo, 1251.2);
   assert.equal(closed.elo, 1266.4);
+});
+
+test("l'ELO n'est jamais seul : les votes reçus l'accompagnent (§4.9, D62)", () => {
+  const running = meWire(contest(), { participant: participant(), judge: null });
+  const closed = meWire(contest({ status: "CLOSED" }), {
+    participant: participant(),
+    judge: null,
+  });
+
+  assert.equal(running.votesReceived, 34);
+  assert.equal(closed.votesReceived, 40);
 });
 
 test("un juré n'a pas d'ELO (D17)", () => {
