@@ -19,7 +19,6 @@ import {
   notFound,
   param,
   requiredParam,
-  requiredField,
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
@@ -103,30 +102,42 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
 );
 
 /**
- * Mise à jour du profil. Trois champs et rien d'autre : `grade`, `stats`,
- * `totals`, `judgeNumber`, `judgeSince` et `isVerified` sont des champs serveur.
+ * Mise à jour du profil. **Partielle** : seuls les champs présents sont écrits.
+ * L'écran d'édition en envoie plusieurs d'un coup, mais changer sa seule photo
+ * ne doit pas obliger à renvoyer son nom et son pays — c'est aussi ce qui
+ * permet à cet endpoint de remplacer les trois anciens `updateNameHttp`,
+ * `updatePictureHttp` et `updateDescriptionHttp`.
+ *
+ * `stats`, `totals`, `judgeNumber`, `judgeSince`, `locale` et `isVerified` sont
+ * des champs serveur : l'appelant ne les écrit jamais.
  */
 export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<JudgeWire> => {
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = callerUid(query, body);
-    const name = requiredField(body, "name");
-    const countryCode = requiredField(body, "countryCode");
-    const rawAvatar = (body as Record<string, unknown>).avatarUrl;
-    if (rawAvatar !== undefined && rawAvatar !== null && typeof rawAvatar !== "string") {
-      throw badRequest("avatarUrl doit être une chaîne ou null");
+    const source = (body ?? {}) as Record<string, unknown>;
+    const patch: Record<string, string | null> = {};
+
+    for (const field of ["name", "countryCode", "avatarUrl", "description"] as const) {
+      const raw = source[field];
+      if (raw === undefined) continue;
+      if (raw !== null && typeof raw !== "string") {
+        throw badRequest(`${field} doit être une chaîne ou null`);
+      }
+      const value = typeof raw === "string" ? raw.trim() : "";
+      // Le nom ne peut pas être effacé ; les autres champs, si.
+      if (field === "name" && value.length === 0) throw badRequest("le nom ne peut pas être vide");
+      patch[field] = value.length > 0 ? value : null;
     }
-    const avatarUrl = typeof rawAvatar === "string" && rawAvatar.trim().length > 0 ?
-      rawAvatar.trim() :
-      null;
+
+    if (Object.keys(patch).length === 0) throw badRequest("aucun champ à mettre à jour");
 
     const userRef = db.collection(USERS).doc(userUid);
     const updated = await db.runTransaction(async (t) => {
       const snap = await t.get(userRef);
       if (!snap.exists) throw notFound(`utilisateur ${userUid} introuvable`);
 
-      const patch = { name, countryCode, avatarUrl };
       t.update(userRef, patch);
       return { ...(snap.data() as UserDoc), ...patch };
     });

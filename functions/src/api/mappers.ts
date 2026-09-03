@@ -47,6 +47,11 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
         photoUrl: participant.photoUrl,
       },
       votes: judge ? judgeVotes(contest, judge) : null,
+      // Même règle que partout : l'instantané du dernier 18 h, et la valeur
+      // vive seulement une fois le concours clos (D54).
+      elo: contest.status === "CLOSED" ?
+        participant.elo :
+        participant.eloSnapshot ?? DEFAULT_ELO,
     };
   }
 
@@ -57,10 +62,19 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       registrationIndex: judge.registrationIndex,
       pet: null,
       votes: judgeVotes(contest, judge),
+      // Pas d'ELO pour les jurés (D17).
+      elo: 0,
     };
   }
 
-  return { role: "NONE", rank: null, registrationIndex: null, pet: null, votes: null };
+  return {
+    role: "NONE",
+    rank: null,
+    registrationIndex: null,
+    pet: null,
+    votes: null,
+    elo: 0,
+  };
 }
 
 /**

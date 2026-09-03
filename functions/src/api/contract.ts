@@ -42,6 +42,12 @@ export interface ContestMeWire {
   registrationIndex: number | null;
   pet: ContestMePetWire | null;
   votes: ContestMeVotesWire | null;
+  /**
+   * L'ELO de **mon** animal sur ce concours, gelé au dernier 18 h comme partout
+   * ailleurs (D54). 0 quand je n'ai pas d'animal en course : le juré n'a pas
+   * d'ELO (D17).
+   */
+  elo: number;
 }
 
 /** La brique commune : feed, profil, carousel, mini slab. */

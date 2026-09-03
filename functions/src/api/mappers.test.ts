@@ -94,6 +94,7 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
     registrationIndex: null,
     pet: null,
     votes: null,
+    elo: 0,
   });
 });
 
@@ -111,6 +112,21 @@ test("à la clôture, justes et faux apparaissent", () => {
   });
 
   assert.deepEqual(me.votes, { cast: 70, limit: 70, correct: 52, wrong: 18 });
+});
+
+test("l'ELO de mon animal suit la même règle d'instantané (D54)", () => {
+  const running = meWire(contest(), { participant: participant(), judge: null });
+  const closed = meWire(contest({ status: "CLOSED" }), {
+    participant: participant(),
+    judge: null,
+  });
+
+  assert.equal(running.elo, 1251.2);
+  assert.equal(closed.elo, 1266.4);
+});
+
+test("un juré n'a pas d'ELO (D17)", () => {
+  assert.equal(meWire(contest(), { participant: null, judge: judge() }).elo, 0);
 });
 
 test("participant : le rôle porte l'animal, le rang est le sien", () => {
