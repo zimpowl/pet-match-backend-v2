@@ -139,6 +139,7 @@ export interface JudgeWire {
   avatarUrl: string | null;
   judgeSince: number;
   countryCode: string | null;
+  level: number;
   stats: StatsWire;
 }
 
@@ -152,6 +153,7 @@ export interface PetWire {
   sex: string | null;
   birthDate: number | null;
   countryCode: string | null;
+  level: number;
   stats: StatsWire;
 }
 

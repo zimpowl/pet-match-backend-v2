@@ -220,6 +220,7 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
     avatarUrl: user.avatarUrl,
     judgeSince: toMillisOrZero(user.judgeSince ?? user.createdAt),
     countryCode: user.countryCode,
+    level: user.grade?.level ?? 0,
     stats: stats(user.stats),
   };
 }
@@ -235,6 +236,7 @@ export function petProfile(petUid: string, pet: PetDoc): PetWire {
     sex: pet.sex,
     birthDate: toMillis(pet.birthDate),
     countryCode: pet.countryCode,
+    level: pet.grade?.level ?? 0,
     stats: stats(pet.stats),
   };
 }
