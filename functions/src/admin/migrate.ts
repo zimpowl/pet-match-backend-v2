@@ -603,7 +603,12 @@ async function main(): Promise<void> {
       avatarUrl: user.avatarUrl ?? null,
       description: user.description ?? null,
       countryCode: null,
-      fcmToken: user.fcmToken ?? null,
+      // Les jetons FCM du legacy appartiennent au projet de prod : le projet
+      // de debug ne peut pas pousser dessus, et `data/notify.ts` efface tout
+      // jeton que FCM refuse. Les migrer reviendrait à les faire supprimer au
+      // premier cycle. On part donc de zéro : l'app réenregistre le sien au
+      // prochain lancement, via `registerDeviceHttp`.
+      fcmToken: null,
       isVerified: false,
       // La langue arrivera de l'app ; sans elle, le français.
       locale: null,
