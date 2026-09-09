@@ -113,7 +113,10 @@ function batcher(): Batcher {
  * Le cœur du cycle. Écrit tout en lots, puis renvoie ce qu'il a fait — c'est ce
  * rapport que la notification consommera, hors de la boucle du batch (§7).
  */
-export async function runCycle(nowMillis: number): Promise<CycleReport> {
+export async function runCycle(
+  nowMillis: number,
+  options: { silent?: boolean } = {},
+): Promise<CycleReport> {
   const report: CycleReport = {
     activated: [],
     snapshotted: [],
@@ -165,7 +168,7 @@ export async function runCycle(nowMillis: number): Promise<CycleReport> {
 
   // Les notifications sont envoyées **après** l'écriture, hors de la boucle du
   // batch (§7) : un échec d'envoi ne doit jamais défaire un classement.
-  report.notifications = await announce(news);
+  if (!options.silent) report.notifications = await announce(news);
 
   // L'ouverture du brouillon suivant se fait après le reste : elle a besoin du
   // numéro de séquence, et elle ne doit pas être rejouée si le lot a échoué.
@@ -261,11 +264,14 @@ async function snapshot(
     ref.collection(JUDGES).get(),
   ]);
 
+  // La justesse du soir porte sur **tous** les votes de la semaine, rejugés
+  // contre les ELO qu'on vient de figer : c'est une estimation, et elle bouge
+  // tant que les ELO bougent (D93). Le classement, lui, reste celui des jurés
+  // les plus actifs (D11) — d'où la map de tri vide.
+  const results = await scoreJudges(ref, participants);
+
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
-  // Le soir ne décide pas de la justesse : elle n'a de sens qu'une fois les ELO
-  // arrêtés, et rien ne l'affiche avant la clôture (D93). Le classement reste
-  // donc celui des jurés les plus actifs (D11).
-  const rankedJudges = rankJudges(ref, judges.docs, new Map(), writes, true);
+  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true, new Map());
 
   for (const row of rankedPets) {
     // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
@@ -769,7 +775,11 @@ export const runCycleHttp = onRequest({ cors: true }, (req, res) =>
     if (!emulated && !/debug/i.test(project)) {
       throw forbidden("ce déclenchement manuel est réservé aux projets de debug");
     }
-    return runCycle(Date.now());
+    // `?silent=true` : le même cycle sans les envois. Sur debug les jetons FCM
+    // viennent d'ailleurs, et `notify` efface ceux que FCM refuse — un cycle
+    // manuel les supprimerait un par un pour rien.
+    const silent = String((req.query as Record<string, unknown>).silent ?? "") === "true";
+    return runCycle(Date.now(), { silent });
   }),
 );
 
