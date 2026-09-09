@@ -210,6 +210,36 @@ async function activate(
 }
 
 /**
+ * La justesse au regard des ELO du moment (§2.1). À la clôture ce sont les ELO
+ * finaux ; au 18 h du soir, ceux de l'instantané qu'on vient de poser. Le calcul
+ * est le même — seule change la photo des forces à laquelle on compare.
+ */
+async function scoreJudges(
+  ref: FirebaseFirestore.DocumentReference,
+  participants: FirebaseFirestore.QuerySnapshot,
+): Promise<ReadonlyMap<string, { correctVotes: number; difficultyScore: number }>> {
+  const votes = await ref.collection(VOTES).get();
+
+  const eloByPetId = new Map<string, number>();
+  for (const doc of participants.docs) {
+    eloByPetId.set(doc.id, (doc.data() as ContestParticipantDoc).elo);
+  }
+
+  const counted: CountedVote[] = votes.docs.map((doc) => {
+    const vote = doc.data() as ContestVoteDoc;
+    return {
+      judgeUserUid: vote.judgeUserUid,
+      pickedPetId: vote.pickedPetId,
+      aPetId: vote.aPetId,
+      bPetId: vote.bPetId,
+      expectedPicked: vote.expectedPicked ?? 0,
+    };
+  });
+
+  return judgeResults(counted, eloByPetId);
+}
+
+/**
  * L'instantané du soir : on recopie le rang dans `rankPrevious` — c'est lui qui
  * porte l'écart avec la veille, la seule chose qui raconte — puis on recalcule,
  * et on gèle ELO et votes reçus.
@@ -231,8 +261,12 @@ async function snapshot(
     ref.collection(JUDGES).get(),
   ]);
 
+  const results = await scoreJudges(ref, participants);
+
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
-  const rankedJudges = rankJudges(ref, judges.docs, new Map(), writes, true);
+  // `sortResults` reste vide : le classement du soir est celui des jurés les
+  // plus actifs (D11). La justesse est écrite, pas classée.
+  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true, new Map());
 
   for (const row of rankedPets) {
     // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
@@ -280,23 +314,7 @@ async function close(
     ref.collection(VOTES).get(),
   ]);
 
-  const eloByPetId = new Map<string, number>();
-  for (const doc of participants.docs) {
-    eloByPetId.set(doc.id, (doc.data() as ContestParticipantDoc).elo);
-  }
-
-  const counted: CountedVote[] = votes.docs.map((doc) => {
-    const vote = doc.data() as ContestVoteDoc;
-    return {
-      judgeUserUid: vote.judgeUserUid,
-      pickedPetId: vote.pickedPetId,
-      aPetId: vote.aPetId,
-      bPetId: vote.bPetId,
-      expectedPicked: vote.expectedPicked ?? 0,
-    };
-  });
-
-  const results = judgeResults(counted, eloByPetId);
+  const results = await scoreJudges(ref, participants);
 
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
   const rankedJudges = rankJudges(ref, judges.docs, results, writes, true);
@@ -504,16 +522,20 @@ function rankJudges(
   results: ReadonlyMap<string, { correctVotes: number; difficultyScore: number }>,
   writes: Batcher,
   freeze: boolean,
+  sortResults: ReadonlyMap<string, { correctVotes: number; difficultyScore: number }> = results,
 ): RankedJudge[] {
   const rows = docs.map((doc) => {
     const data = doc.data() as ContestJudgeDoc;
     const result = results.get(doc.id);
+    const sorted = sortResults.get(doc.id);
     return {
       userUid: doc.id,
       data,
-      correctVotes: result?.correctVotes ?? 0,
+      written: result?.correctVotes ?? 0,
+      writtenDifficulty: result?.difficultyScore ?? 0,
+      correctVotes: sorted?.correctVotes ?? 0,
       votes: data.votes,
-      difficultyScore: result?.difficultyScore ?? 0,
+      difficultyScore: sorted?.difficultyScore ?? 0,
       joinedAt: toMillisOrZero(data.joinedAt),
     };
   });
@@ -528,15 +550,15 @@ function rankJudges(
       rank: rankValue,
       rankPrevious: row.data.rank ?? null,
       votes: row.data.votes,
-      correctVotes: row.correctVotes,
+      correctVotes: row.written,
     });
     writes.set(
       ref.collection(JUDGES).doc(row.userUid),
       {
         rank: rankValue,
         rankPrevious: row.data.rank ?? null,
-        correctVotes: row.correctVotes,
-        difficultyScore: row.difficultyScore,
+        correctVotes: row.written,
+        difficultyScore: row.writtenDifficulty,
         ...(freeze ? { votesSnapshot: row.data.votes } : {}),
       },
       true,

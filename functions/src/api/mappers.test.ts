@@ -108,20 +108,30 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
   });
 });
 
-test("concours en cours : la justesse n'est pas encore connue (§4.9)", () => {
+test("la justesse existe dès le premier 18 h, pas seulement à la clôture (D93)", () => {
   const me = meWire(contest(), { participant: null, judge: judge() });
 
   assert.equal(me.role, "JUDGE");
-  assert.deepEqual(me.votes, { cast: 33, limit: 70, correct: 0, wrong: 0 });
+  assert.deepEqual(me.votes, { cast: 33, limit: 70, perDay: 10, correct: 25, wrong: 8 });
 });
 
-test("à la clôture, justes et faux apparaissent", () => {
+test("à la clôture, justes et faux couvrent tout le plafond", () => {
   const me = meWire(contest({ status: "CLOSED" }), {
     participant: null,
     judge: judge({ votes: 70, correctVotes: 52 }),
   });
 
-  assert.deepEqual(me.votes, { cast: 70, limit: 70, correct: 52, wrong: 18 });
+  assert.deepEqual(me.votes, { cast: 70, limit: 70, perDay: 10, correct: 52, wrong: 18 });
+});
+
+test("l'allocation quotidienne accompagne le plafond : c'est le dénominateur", () => {
+  const small = meWire(contest({ maxVotesPerJudge: 35, maxVotesPerDay: 5 }), {
+    participant: null,
+    judge: judge(),
+  });
+
+  assert.equal(small.votes?.perDay, 5);
+  assert.equal(small.votes?.limit, 35);
 });
 
 test("l'ELO de mon animal suit la même règle d'instantané (D54)", () => {

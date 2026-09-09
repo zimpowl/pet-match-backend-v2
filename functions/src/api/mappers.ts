@@ -99,16 +99,18 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
 }
 
 /**
- * La justesse n'est connue qu'à la clôture (§4.9) : avant, `correct` et
- * `wrong` restent à zéro même si les docs portent déjà un compteur.
+ * La justesse est recalculée à chaque 18 h contre les ELO de l'instantané
+ * (D93), donc elle existe dès le premier résultat et non plus seulement à la
+ * clôture. `perDay` accompagne le plafond : c'est lui qui donne le
+ * dénominateur de la précision, la fenêtre déjà validée.
  */
 function judgeVotes(contest: ContestDoc, judge: ContestJudgeDoc) {
-  const closed = contest.status === "CLOSED";
   return {
     cast: judge.votes,
     limit: contest.maxVotesPerJudge,
-    correct: closed ? judge.correctVotes : 0,
-    wrong: closed ? Math.max(0, judge.votes - judge.correctVotes) : 0,
+    perDay: contest.maxVotesPerDay,
+    correct: judge.correctVotes,
+    wrong: Math.max(0, judge.votes - judge.correctVotes),
   };
 }
 
