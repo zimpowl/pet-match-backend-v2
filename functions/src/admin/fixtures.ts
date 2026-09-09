@@ -1,7 +1,7 @@
 import { CONTEST_DAYS, DAY_MILLIS } from "../core/allocation";
 import { DEFAULT_ELO } from "../core/elo";
 import { computeMaxVotesPerJudge, computeVotesPerDay } from "../core/cap";
-import { ContestStatus, Species } from "../models/contest";
+import { ContestStatus, Sex, Species } from "../models/contest";
 
 /**
  * Le jeu de données de debug, calqué sur `FakeContest.kt` : mêmes thèmes,
@@ -108,6 +108,7 @@ export interface ParticipantFixture {
   readonly petName: string;
   readonly petBreed: string;
   readonly species: Species;
+  readonly sex: Sex;
   readonly photoUrl: string;
   readonly registrationIndex: number;
   readonly elo: number;
@@ -141,6 +142,7 @@ export function participantFixture(
       "chien d'arrêt allemand à poil dur" :
       BREEDS[index % BREEDS.length] ?? "sans race",
     species: mine ? "DOG" : index % 5 === 4 ? "CAT" : "DOG",
+    sex: mine || index % 2 === 0 ? "MALE" : "FEMALE",
     photoUrl: photo(mine ? 42 : petNumber),
     registrationIndex: index + 1,
     elo,

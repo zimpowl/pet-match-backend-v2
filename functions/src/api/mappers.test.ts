@@ -50,6 +50,9 @@ function judge(overrides: Partial<ContestJudgeDoc> = {}): ContestJudgeDoc {
     userName: "Zimpo",
     userAvatarUrl: null,
     registrationIndex: 8,
+    gradeAtEntry: 2,
+    statsAtContest: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
+    winner: null,
     votesPerDay: [10, 10, 10, 3, 0, 0, 0],
     votes: 33,
     votesSnapshot: 30,
@@ -71,8 +74,11 @@ function participant(overrides: Partial<ContestParticipantDoc> = {}): ContestPar
     petName: "Heureux",
     petBreed: "berger australien",
     species: "DOG",
+    sex: "MALE",
     photoUrl: "https://placedog.net/300/300?id=42",
     registrationIndex: 8,
+    gradeAtEntry: 3,
+    statsAtContest: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
     elo: 1266.4,
     wins: 40,
     losses: 18,
@@ -96,6 +102,9 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
     votes: null,
     elo: 0,
     votesReceived: 0,
+    level: 0,
+    career: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
+    winner: null,
   });
 });
 
@@ -154,6 +163,23 @@ test("participant : le rôle porte l'animal, le rang est le sien", () => {
   assert.equal(me.votes, null);
 });
 
+test("la slab dit ce que le porteur était ce jour-là, pas ce qu'il est devenu (D30)", () => {
+  const me = meWire(contest(), { participant: participant(), judge: null });
+
+  assert.equal(me.level, 3);
+  assert.deepEqual(me.career, { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 });
+});
+
+test("un juré emprunte son image au vainqueur, un participant jamais", () => {
+  const asJudge = meWire(contest(), {
+    participant: null,
+    judge: judge({ winner: { petId: "uno", name: "Uno", photoUrl: "http://p" } }),
+  });
+
+  assert.deepEqual(asJudge.winner, { petUid: "uno", name: "Uno", photoUrl: "http://p" });
+  assert.equal(meWire(contest(), { participant: participant(), judge: null }).winner, null);
+});
+
 test("participant ET juré : le rôle est participant, les votes restent visibles", () => {
   const me = meWire(contest(), { participant: participant(), judge: judge() });
 
@@ -178,11 +204,16 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     name: "Heureux",
     breed: "berger australien",
     species: "DOG",
+    sex: "MALE",
     photoUrl: "https://placedog.net/300/300?id=42",
     elo: 1266.4,
     votesReceived: 40,
     rank: 2,
     registrationIndex: 8,
+    // De quoi imprimer l'étiquette d'identité du haut, gelée au jour de
+    // l'inscription (D30) : c'est ce que la slab dira dans trois mois.
+    level: 3,
+    career: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
   });
 
   assert.deepEqual(judgeRow(judge(), "CLOSED"), {
@@ -195,6 +226,8 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     correctVotes: 25,
     rank: 4,
     registrationIndex: 8,
+    level: 2,
+    career: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
   });
 });
 
@@ -285,6 +318,7 @@ test("un animal sans date de naissance renvoie null, pas zéro", () => {
     createdAt: stamp(START),
     microchipId: null,
     verifiedAt: null,
+    grade: { level: 0 },
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
   };
 
@@ -302,6 +336,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
     fcmToken: null,
     isVerified: false,
     locale: null,
+    grade: { level: 0 },
     judgeNumber: null,
     judgeSince: null,
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },

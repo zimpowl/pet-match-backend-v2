@@ -1,7 +1,9 @@
 import { firestore } from "firebase-admin";
+import { StatsDoc } from "./user";
 
 export type ContestStatus = "DRAFT" | "ACTIVE" | "CLOSED";
 export type Species = "DOG" | "CAT";
+export type Sex = "MALE" | "FEMALE";
 
 export interface ContestDoc {
   theme: string;
@@ -31,8 +33,28 @@ export interface ContestParticipantDoc {
   petName: string;
   petBreed: string | null;
   species: Species;
+  /**
+   * Le sexe est dénormalisé comme le nom et la race : l'étiquette d'identité
+   * est une empreinte de l'animal, et une empreinte ne va pas rechercher ses
+   * pièces ailleurs. Null sur les participants venus du legacy, qui n'en
+   * portaient pas — l'icône se tait alors, elle ne devine pas.
+   */
+  sex: Sex | null;
   photoUrl: string;
   registrationIndex: number;
+  /**
+   * L'état de l'animal **à ce concours-ci**, ce concours compris (D90). Posé à
+   * l'inscription avec `contests + 1` — le 4e concours affiche « 4 » —, puis
+   * regelé à la clôture pour y replier la médaille et le `bestRank` de ce
+   * concours. On peut être premier le mardi soir : la médaille n'entre dans
+   * l'étiquette qu'une fois le concours terminé.
+   *
+   * Après la clôture, plus personne n'y touche. Une slab est un objet de
+   * collection : celle d'il y a trois mois doit dire ce que l'animal était
+   * alors, pas ce qu'il est devenu depuis (D30).
+   */
+  gradeAtEntry: number;
+  statsAtContest: StatsDoc;
   /** En direct, à chaque vote. Lu par l'appariement, jamais par l'utilisateur. */
   elo: number;
   wins: number;
@@ -61,6 +83,17 @@ export interface ContestJudgeDoc {
   userAvatarUrl: string | null;
   /** Rang du premier tour, comme pour les participants (D87). */
   registrationIndex: number;
+  /** Le juré à ce concours-ci, ce concours compris (D90). Cf. le participant. */
+  gradeAtEntry: number;
+  statsAtContest: StatsDoc;
+  /**
+   * Le vainqueur du concours, gelé à la clôture. C'est l'image de la slab d'un
+   * juré : « j'étais là quand celui-là a gagné ». Un juré n'a pas d'image
+   * propre — un participant a sa photo, son seul levier (§4.2 bis) — donc la
+   * sienne est empruntée au concours qu'il a jugé. null avant la clôture : il
+   * n'y a pas encore de vainqueur, et la slab garde sa jauge de votes.
+   */
+  winner: { petId: string; name: string; photoUrl: string | null } | null;
   votesPerDay: number[];
   /** En direct : c'est mon budget et mon objectif, pas un classement (§4.9). */
   votes: number;

@@ -1,5 +1,5 @@
 import { firestore } from "firebase-admin";
-import { Species } from "./contest";
+import { Sex, Species } from "./contest";
 import { StatsDoc } from "./user";
 
 export interface PetDoc {
@@ -8,12 +8,14 @@ export interface PetDoc {
   name: string;
   photoUrl: string | null;
   species: Species;
-  sex: "MALE" | "FEMALE" | null;
+  sex: Sex | null;
   breed: string | null;
   birthDate: firestore.Timestamp | null;
   countryCode: string | null;
   createdAt: firestore.Timestamp;
   microchipId: string | null;
   verifiedAt: firestore.Timestamp | null;
+  /** Grade de l'animal (§4.8), progression séparée de celle du juré. */
+  grade: { level: number };
   stats: StatsDoc;
 }

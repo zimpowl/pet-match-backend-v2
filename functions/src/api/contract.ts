@@ -18,6 +18,12 @@ export interface DailyVotesWire {
   secondsToReset: number;
 }
 
+export interface ContestWinnerWire {
+  petUid: string;
+  name: string;
+  photoUrl: string | null;
+}
+
 export interface ContestCountsWire {
   judges: number;
   participants: number;
@@ -54,6 +60,19 @@ export interface ContestMeWire {
    * d'apparitions. Gelé comme l'ELO.
    */
   votesReceived: number;
+  /**
+   * Ce que j'étais **le jour de l'inscription**, figé pour toujours (D30). La
+   * slab est un objet de collection : celle d'il y a trois mois doit dire
+   * « niveau 1, aucune médaille », pas ce que je suis devenu depuis.
+   */
+  level: number;
+  career: StatsWire;
+  /**
+   * Le vainqueur du concours, l'image de la slab d'un juré. null avant la
+   * clôture — il n'y a pas encore de vainqueur — et null pour un participant,
+   * dont la slab porte sa propre photo.
+   */
+  winner: ContestWinnerWire | null;
 }
 
 /** La brique commune : feed, profil, carousel, mini slab. */
@@ -68,6 +87,12 @@ export interface ContestCardWire {
   me: ContestMeWire;
 }
 
+/**
+ * Une ligne de concours porte de quoi imprimer **les deux étiquettes** de la
+ * slab : l'identité du porteur en haut, le concours en pied. `level` et
+ * `career` sont donc ceux du jour de l'inscription (D30), pas ceux
+ * d'aujourd'hui — sinon la slab d'il y a trois mois mentirait.
+ */
 export interface ParticipantRowWire {
   petUid: string;
   ownerUid: string;
@@ -75,11 +100,14 @@ export interface ParticipantRowWire {
   name: string;
   breed: string | null;
   species: SpeciesWire;
+  sex: string | null;
   photoUrl: string | null;
   elo: number;
   votesReceived: number;
   rank: number | null;
   registrationIndex: number;
+  level: number;
+  career: StatsWire;
 }
 
 export interface JudgeRowWire {
@@ -92,6 +120,8 @@ export interface JudgeRowWire {
   correctVotes: number;
   rank: number | null;
   registrationIndex: number;
+  level: number;
+  career: StatsWire;
 }
 
 export interface StatsWire {

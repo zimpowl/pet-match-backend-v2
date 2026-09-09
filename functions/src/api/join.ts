@@ -79,9 +79,15 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         petName: pet.name,
         petBreed: pet.breed,
         species: pet.species,
+        sex: pet.sex,
         // La photo inscrite, dénormalisée : c'est elle qui sera imprimée.
         photoUrl,
         registrationIndex,
+        // L'état de l'animal à ce concours-ci (D90). Le concours courant se
+        // compte dès l'inscription — le 4e concours affiche « 4 » —, mais sa
+        // médaille attend la clôture, qui regèlera cet instantané.
+        gradeAtEntry: pet.grade?.level ?? 0,
+        statsAtContest: { ...pet.stats, contests: (pet.stats?.contests ?? 0) + 1 },
         elo: DEFAULT_ELO,
         wins: 0,
         losses: 0,

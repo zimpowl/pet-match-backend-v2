@@ -16,7 +16,8 @@ Le document de référence est **`~/AndroidStudioProjects/pet-match/REFONTE.md`*
 | §5 / §5.1 | Contrat d'API — les endpoints et leurs payloads |
 | §6 | Migration des données depuis `challenges` |
 | §7 | Découpage en lots L0 → L7 |
-| tableau initial | Toutes les décisions D1 → D89, avec ce qui est annulé |
+| §10 | **Où on en est** : ce qui est fait, la migration, les pièges déjà payés |
+| tableau initial | Toutes les décisions D1 → D91, avec ce qui est annulé |
 
 L'app KMP consomme déjà ce contrat. Ses **fakes sont l'implémentation de référence** :
 `shared/src/commonMain/kotlin/com/zimpo/petmatch/contest/data/FakeContestApi.kt`
@@ -195,7 +196,7 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   « tout le monde est d'accord avec moi » au lieu de « personne d'autre n'a voté ».
   Le pourcentage inclut délibérément mon propre vote : l'exclure donnerait `50 % / 50 %` au
   premier votant, soit « la foule est partagée » alors qu'il n'y a pas de foule.
-  L'affichage est branché côté app (voir `HANDOFF.md`) : à `duelVotes == 1` la page Vote
+  L'affichage est branché côté app (voir §10.7 de REFONTE.md) : à `duelVotes == 1` la page Vote
   retire les pourcentages, éteint la carte écartée et affiche « Premier verdict » ; sinon
   « Provisoire · N votes », qui apporte au passage la mention *provisoire* du §4.5 bis.
 - **Un vote est juste si l'animal choisi finit avec un ELO final strictement supérieur à son

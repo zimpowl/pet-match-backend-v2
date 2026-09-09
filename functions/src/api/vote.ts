@@ -169,6 +169,12 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
           userName: user.name,
           userAvatarUrl: user.avatarUrl,
           registrationIndex,
+          // Le juré à ce concours-ci (D90) : il se compte dès son premier
+          // vote, sa médaille attend la clôture.
+          gradeAtEntry: user.grade?.level ?? 0,
+          statsAtContest: { ...user.stats, contests: (user.stats?.contests ?? 0) + 1 },
+          // Pas de vainqueur avant la clôture : la slab garde sa jauge.
+          winner: null,
           votesPerDay,
           votes: votesAfter,
           // Les instantanés appartiennent au job de 18 h, jamais au vote (D54).

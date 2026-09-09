@@ -19,6 +19,7 @@ import {
   LegacyUser,
   LegacyVote,
 } from "./legacy";
+import { computeGradeLevel } from "../core/grade";
 import {
   assignNumbers,
   mapSex,
@@ -212,6 +213,85 @@ async function main(): Promise<void> {
     petIdByUserUid.set(challenge.id, map);
   }
 
+  // ---- Trajectoire de carrière ---------------------------------------------
+  /**
+   * Une slab doit dire ce que son porteur était **ce jour-là** (D30). Le legacy
+   * n'a jamais stocké ça, mais l'historique complet est daté : on peut donc le
+   * reconstruire, en parcourant les concours dans l'ordre et en accumulant les
+   * podiums au fur et à mesure. C'est ce qui donne à l'étagère une trajectoire
+   * — « il a gagné celui-là quand il n'avait encore aucune médaille » — au lieu
+   * d'une carrière plate recopiée partout.
+   *
+   * Le niveau, lui, sort à 0 pour tout le monde (D91) : le cran 1 « confirmé »
+   * demande une vérification **manuelle**, que personne n'a encore passée. La
+   * migration ne l'invente pas — elle passe `verified: false` et l'échelle,
+   * qui est cumulative, s'arrête donc au premier barreau.
+   */
+  const chronological = [...challenges].sort(
+    (a, b) =>
+      millis(a.doc.startAt ?? a.doc.createdAt, 0) - millis(b.doc.startAt ?? b.doc.createdAt, 0),
+  );
+
+  const frozen = new Map<string, { stats: StatsDoc; grade: number }>();
+  const winnerOf = new Map<string, { petId: string; name: string; photoUrl: string | null }>();
+  type RankTrail = Map<string, Array<number | null>>;
+  const petHistory: RankTrail = new Map();
+  const judgeHistory: RankTrail = new Map();
+
+  const freeze = (key: string, history: RankTrail, holder: string) => {
+    const stats = statsFromRanks(history.get(holder) ?? []);
+    frozen.set(key, { stats, grade: computeGradeLevel(stats, false) });
+  };
+
+  for (const challenge of chronological) {
+    const closed = mapStatus(challenge.doc.status) === "CLOSED";
+    const map = petIdByUserUid.get(challenge.id) ?? new Map<string, string>();
+
+    let best: { rank: number; petId: string } | null = null;
+
+    // Ce concours entre dans l'historique **avant** le gel : l'instantané doit
+    // le contenir (D90). Un concours non clos y entre comme un rang nul — il
+    // compte donc dans `contests` sans donner de médaille, ce qui est
+    // exactement la règle « on peut être premier le mardi soir ».
+    for (const participant of challenge.participants) {
+      const petId = map.get(participant.id);
+      if (!petId) continue;
+
+      const rank = participant.data.rank ?? null;
+      const list = petHistory.get(petId) ?? [];
+      list.push(closed ? rank : null);
+      petHistory.set(petId, list);
+
+      if (closed && rank !== null && (best === null || rank < best.rank)) {
+        best = { rank, petId };
+      }
+    }
+    for (const judge of challenge.judges) {
+      const list = judgeHistory.get(judge.id) ?? [];
+      list.push(closed ? judge.data.finalRank ?? null : null);
+      judgeHistory.set(judge.id, list);
+    }
+
+    for (const participant of challenge.participants) {
+      const petId = map.get(participant.id);
+      if (!petId) continue;
+      freeze(`p:${challenge.id}:${petId}`, petHistory, petId);
+    }
+    for (const judge of challenge.judges) {
+      freeze(`j:${challenge.id}:${judge.id}`, judgeHistory, judge.id);
+    }
+
+    if (best) {
+      const source = challenge.participants.find((entry) => map.get(entry.id) === best?.petId);
+      const pet = legacyPets.get(best.petId);
+      winnerOf.set(challenge.id, {
+        petId: best.petId,
+        name: pet?.name ?? source?.data.petName ?? "",
+        photoUrl: source?.data.imageUrl ?? pet?.imageUrl ?? null,
+      });
+    }
+  }
+
   // ---- Numérotation (D83) --------------------------------------------------
   const allPets = new Map<string, { species: string | null; createdAtMillis: number }>();
   for (const [petId, pet] of legacyPets) {
@@ -333,8 +413,11 @@ async function main(): Promise<void> {
         petName: pet?.name ?? fields.name,
         petBreed: pet?.breed ?? fields.breed,
         species: mapSpecies(pet?.species) ?? "DOG",
+        sex: mapSex(pet?.gender),
         photoUrl: data.imageUrl ?? pet?.imageUrl ?? "",
         registrationIndex: registrationOrder.get(participant.id) ?? 1,
+        gradeAtEntry: frozen.get(`p:${challenge.id}:${petId}`)?.grade ?? 0,
+        statsAtContest: frozen.get(`p:${challenge.id}:${petId}`)?.stats ?? EMPTY_STATS,
         elo,
         wins,
         losses: data.losses ?? 0,
@@ -384,6 +467,10 @@ async function main(): Promise<void> {
         userName: data.userName ?? legacyUsers.get(judge.id)?.name ?? "",
         userAvatarUrl: data.userAvatarUrl ?? legacyUsers.get(judge.id)?.avatarUrl ?? null,
         registrationIndex: judgeOrder.get(judge.id) ?? 1,
+        gradeAtEntry: frozen.get(`j:${challenge.id}:${judge.id}`)?.grade ?? 0,
+        statsAtContest: frozen.get(`j:${challenge.id}:${judge.id}`)?.stats ?? EMPTY_STATS,
+        // L'image de la slab d'un juré : le vainqueur du concours qu'il a jugé.
+        winner: winnerOf.get(challenge.id) ?? null,
         // La répartition quotidienne n'a jamais été stockée : seul le total est vrai.
         votesPerDay: emptyVotesPerDay(),
         votes,
@@ -460,6 +547,7 @@ async function main(): Promise<void> {
       createdAt: Timestamp.fromMillis(millis(created.source.createdAt, Date.now())),
       microchipId: null,
       verifiedAt: null,
+      grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
       stats: statsFromRanks(petRanks.get(petId) ?? []),
     };
     writes.push({ path: `pets/${petId}`, data: pet, merge: false });
@@ -488,6 +576,7 @@ async function main(): Promise<void> {
         countryCode: null,
         microchipId: null,
         verifiedAt: null,
+        grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
         stats: statsFromRanks(petRanks.get(petId) ?? []),
       },
       merge: true,
@@ -511,6 +600,7 @@ async function main(): Promise<void> {
       isVerified: false,
       // La langue arrivera de l'app ; sans elle, le français.
       locale: null,
+      grade: { level: computeGradeLevel(stats, false) },
       judgeNumber: judgedAt === undefined ? null : judgeNumbers.get(userUid) ?? null,
       judgeSince: judgedAt === undefined ? null : Timestamp.fromMillis(judgedAt),
       stats,

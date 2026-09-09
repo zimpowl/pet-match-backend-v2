@@ -55,6 +55,10 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       votesReceived: contest.status === "CLOSED" ?
         participant.votesReceived :
         participant.votesReceivedSnapshot ?? 0,
+      level: participant.gradeAtEntry ?? 0,
+      career: stats(participant.statsAtContest),
+      // Un participant a sa propre photo : il n'emprunte rien au vainqueur.
+      winner: null,
     };
   }
 
@@ -68,6 +72,15 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       // Pas d'ELO pour les jurés (D17), et rien de reçu : ils donnent.
       elo: 0,
       votesReceived: 0,
+      level: judge.gradeAtEntry ?? 0,
+      career: stats(judge.statsAtContest),
+      winner: judge.winner ?
+        {
+          petUid: judge.winner.petId,
+          name: judge.winner.name,
+          photoUrl: judge.winner.photoUrl,
+        } :
+        null,
     };
   }
 
@@ -79,6 +92,9 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     votes: null,
     elo: 0,
     votesReceived: 0,
+    level: 0,
+    career: stats(undefined),
+    winner: null,
   };
 }
 
@@ -136,6 +152,7 @@ export function participantRow(
     name: participant.petName,
     breed: participant.petBreed,
     species: participant.species,
+    sex: participant.sex ?? null,
     photoUrl: participant.photoUrl ?? null,
     elo: status === "CLOSED" ?
       participant.elo :
@@ -145,6 +162,8 @@ export function participantRow(
       participant.votesReceivedSnapshot ?? 0,
     rank: participant.rank,
     registrationIndex: participant.registrationIndex,
+    level: participant.gradeAtEntry ?? 0,
+    career: stats(participant.statsAtContest),
   };
 }
 
@@ -170,6 +189,8 @@ export function judgeRow(
     correctVotes: status === "CLOSED" ? judge.correctVotes : 0,
     rank: judge.rank,
     registrationIndex: judge.registrationIndex,
+    level: judge.gradeAtEntry ?? 0,
+    career: stats(judge.statsAtContest),
   };
 }
 

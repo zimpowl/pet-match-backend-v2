@@ -22,6 +22,12 @@ export interface UserDoc {
    * parle de l'animal (ICAD), pas de la langue. Absent = français.
    */
   locale: string | null;
+  /**
+   * Grade de juré (§4.8). Stocké et non recalculé : un niveau ne redescend
+   * jamais (D30), et le recalculer le ferait baisser si la vérification
+   * tombait. Relevé par la clôture, jamais baissé.
+   */
+  grade: { level: number };
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

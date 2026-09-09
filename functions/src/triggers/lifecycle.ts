@@ -24,6 +24,7 @@ import { compareJudges, compareParticipants, rank as ranked } from "../core/rank
 import { CountedVote, judgeResults, medalFromRank } from "../core/results";
 import { toMillisOrZero } from "../core/time";
 import { StatsDoc } from "../models/user";
+import { computeGradeLevel, raiseGradeLevel } from "../core/grade";
 import {
   ContestDoc,
   ContestJudgeDoc,
@@ -341,21 +342,48 @@ async function close(
 
   for (const snap of petDocs) {
     const rankValue = participantRanks.get(snap.id) ?? null;
-    writes.set(snap.ref, { stats: nextStats(snap.data()?.stats, rankValue) }, true);
+    const stats = nextStats(snap.data()?.stats, rankValue);
+    writes.set(
+      snap.ref,
+      { stats, grade: { level: nextGrade(snap.data(), stats, snap.get("verifiedAt") != null) } },
+      true,
+    );
+    // Le même agrégat sert d'instantané d'époque (D90) : « ce concours inclus »
+    // est exactement ce que `nextStats` vient de calculer. C'est ici, et
+    // seulement ici, que la médaille de ce concours entre dans son étiquette.
+    writes.set(ref.collection(PARTICIPANTS).doc(snap.id), { statsAtContest: stats }, true);
   }
 
   for (const snap of userDocs) {
     const rankValue = judgeRanks.get(snap.id) ?? null;
     const gained = results.get(snap.id)?.correctVotes ?? 0;
     const totals = (snap.data()?.totals ?? {}) as { votes?: number; correctVotes?: number };
+    const stats = nextStats(snap.data()?.stats, rankValue);
     writes.set(
       snap.ref,
       {
-        stats: nextStats(snap.data()?.stats, rankValue),
+        stats,
+        grade: { level: nextGrade(snap.data(), stats, snap.get("isVerified") === true) },
         totals: { correctVotes: (totals.correctVotes ?? 0) + gained },
       },
       true,
     );
+    writes.set(ref.collection(JUDGES).doc(snap.id), { statsAtContest: stats }, true);
+  }
+
+  // Le vainqueur devient l'image de la slab de chaque juré : « j'étais là quand
+  // celui-là a gagné ». Gelé maintenant, donc immuable — un concours clos ne
+  // change plus de vainqueur.
+  const champion = rankedPets.find((row) => row.rank === 1);
+  if (champion) {
+    const winner = {
+      petId: champion.petId,
+      name: champion.petName,
+      photoUrl: champion.photoUrl,
+    };
+    for (const row of rankedJudges) {
+      writes.set(ref.collection(JUDGES).doc(row.userUid), { winner }, true);
+    }
   }
 
   writes.set(
@@ -395,9 +423,20 @@ interface RankedPet {
   readonly petId: string;
   readonly ownerUid: string;
   readonly petName: string;
+  readonly photoUrl: string | null;
   readonly rank: number;
   readonly rankPrevious: number | null;
   readonly elo: number;
+}
+
+/** Un niveau ne redescend jamais (D30) : on relève, on ne recalcule pas. */
+function nextGrade(
+  current: FirebaseFirestore.DocumentData | undefined,
+  stats: StatsDoc,
+  verified: boolean,
+): number {
+  const held = (current?.grade as { level?: number } | undefined)?.level;
+  return raiseGradeLevel(held, computeGradeLevel(stats, verified));
 }
 
 function rankParticipants(
@@ -427,6 +466,7 @@ function rankParticipants(
       petId: row.petId,
       ownerUid: row.data.ownerUid,
       petName: row.data.petName,
+      photoUrl: row.data.photoUrl ?? null,
       rank: rankValue,
       rankPrevious: row.data.rank ?? null,
       elo: row.data.elo,
