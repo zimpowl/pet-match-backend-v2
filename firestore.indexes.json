@@ -25,10 +25,6 @@
         {
           "fieldPath": "joinedAt",
           "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "registrationIndex",
-          "order": "ASCENDING"
         }
       ]
     },
@@ -75,62 +71,6 @@
       ]
     },
     {
-      "collectionGroup": "challenges",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "startAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "challenges",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "endAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "challenges",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "endAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "votes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "judgeUserUid",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "dayKey",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "participants",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -140,60 +80,6 @@
         },
         {
           "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "instagram_posts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "challengeId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "instagram_posts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "challengeId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "countdownEndTime",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "postedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "instagram_posts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "postedAt",
           "order": "DESCENDING"
         }
       ]
