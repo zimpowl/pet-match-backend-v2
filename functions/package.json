@@ -13,7 +13,8 @@
     "seed": "tsc && node lib/admin/seed.js",
     "migrate": "tsc && node lib/admin/migrate.js",
     "cleanup": "tsc && node lib/admin/cleanup.js",
-    "backup": "tsc && node lib/admin/backup.js"
+    "backup": "tsc && node lib/admin/backup.js",
+    "purge": "tsc && node lib/admin/purge.js"
   },
   "engines": {
     "node": "24"
