@@ -1,7 +1,13 @@
 import { initializeApp } from "firebase-admin/app";
 import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
 import { emptyVotesPerDay } from "../core/allocation";
-import { computeMaxVotesPerJudge, computeVotesPerDay } from "../core/cap";
+/**
+ * Le plafond du legacy, mesuré sur les 18 concours réels : 5 votes par jour sur
+ * une fenêtre dimanche → dimanche, donc huit jours et non sept. Le maximum
+ * absolu observé est exactement 40, atteint sur douze concours sur dix-huit.
+ */
+const LEGACY_VOTES_PER_DAY = 5;
+const LEGACY_MAX_VOTES_PER_JUDGE = 40;
 import { DEFAULT_ELO, DEFAULT_K_FACTOR, pairKey } from "../core/elo";
 import {
   ContestDoc,
@@ -357,13 +363,13 @@ async function main(): Promise<void> {
     const map = petIdByUserUid.get(challenge.id) ?? new Map<string, string>();
     const participantCount = challenge.participants.length;
 
-    // Le plafond est celui du §4.3 / D85, sans exception : l'historique doit se
-    // lire comme du v2. Le legacy en autorisait davantage — jusqu'à 40 là où le
-    // D85 en donne 35 — donc les compteurs de l'historique sont **ramenés** au
-    // plafond, sans quoi une jauge afficherait « 40 / 35 ». L'information
-    // perdue est le surplus au-delà du plafond, sur des concours clos dont les
-    // rangs sont déjà figés : elle ne sert plus à rien.
-    const cap = computeMaxVotesPerJudge(participantCount);
+    // Le plafond d'un concours migré est celui sous lequel il a **réellement**
+    // été joué (D92) : 5 votes par jour du dimanche au dimanche, soit huit
+    // jours, soit 40. Le v2 en compte sept (35 ou 70), mais appliquer sa règle
+    // à l'historique le falsifierait — un juré qui a posé 40 votes en a posé
+    // 40, et sa slab doit le dire. `maxVotesPerJudge` est stocké par concours
+    // précisément pour ça : une slab sait sous quelles règles elle a été jouée.
+    const cap = LEGACY_MAX_VOTES_PER_JUDGE;
     const startAt = millis(challenge.doc.startAt, 0);
     const endAt = millis(challenge.doc.endAt, startAt);
 
@@ -375,7 +381,7 @@ async function main(): Promise<void> {
       startAt: Timestamp.fromMillis(startAt),
       endAt: Timestamp.fromMillis(endAt),
       maxVotesPerJudge: cap,
-      maxVotesPerDay: computeVotesPerDay(participantCount),
+      maxVotesPerDay: LEGACY_VOTES_PER_DAY,
       eloKFactor: challenge.doc.eloKFactor ?? DEFAULT_K_FACTOR,
       counts: { participants: participantCount, judges: challenge.judges.length },
       // Un concours clos a eu tous ses 18 h ; les autres n'en ont pas encore eu
@@ -450,7 +456,8 @@ async function main(): Promise<void> {
 
     for (const judge of challenge.judges) {
       const data = judge.data;
-      const votes = Math.min(data.votesCount ?? 0, cap);
+      // Aucun écrêtage : le compteur dit ce qui a été posé (D92).
+      const votes = data.votesCount ?? 0;
       const correctVotes = Math.min(data.finalCorrectVotes ?? 0, votes);
       const rank = data.finalRank ?? null;
 
