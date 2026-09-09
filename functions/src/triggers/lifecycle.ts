@@ -261,12 +261,11 @@ async function snapshot(
     ref.collection(JUDGES).get(),
   ]);
 
-  const results = await scoreJudges(ref, participants);
-
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
-  // `sortResults` reste vide : le classement du soir est celui des jurés les
-  // plus actifs (D11). La justesse est écrite, pas classée.
-  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true, new Map());
+  // Le soir ne décide pas de la justesse : elle n'a de sens qu'une fois les ELO
+  // arrêtés, et rien ne l'affiche avant la clôture (D93). Le classement reste
+  // donc celui des jurés les plus actifs (D11).
+  const rankedJudges = rankJudges(ref, judges.docs, new Map(), writes, true);
 
   for (const row of rankedPets) {
     // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
