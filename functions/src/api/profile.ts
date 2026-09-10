@@ -39,17 +39,18 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<JudgeProfileResponse> => {
     const query = req.query as Query;
     const userUid = requiredParam(query, "userUid");
+    const cursor = param(query, "cursor") ?? null;
 
     const now = Date.now();
     const [user, pets, judged] = await Promise.all([
       loadUser(userUid),
       loadPets(userUid),
-      loadJudgedContests(userUid),
+      loadJudgedContests(userUid, cursor),
     ]);
     if (!user) throw notFound(`utilisateur ${userUid} introuvable`);
 
-    const contests = await loadContestsByIds(judged.map((entry) => entry.contestUid));
-    const prefetched: PrefetchedContest[] = judged.flatMap((entry) => {
+    const contests = await loadContestsByIds(judged.rows.map((entry) => entry.contestUid));
+    const prefetched: PrefetchedContest[] = judged.rows.flatMap((entry) => {
       const contest = contests.get(entry.contestUid);
       return contest ?
         [{ contest, me: { participant: null, judge: entry.judge } }] :
@@ -60,10 +61,13 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
     // (D95). Sans ça un juré neuf ne voit rien : la liste ne connaît que les
     // concours où un document juré existe déjà, et ce document naît du premier
     // vote — l'étagère n'offrait donc aucune porte d'entrée.
-    const active = await loadActiveContests();
-    for (const contest of active) {
-      if (prefetched.some((entry) => entry.contest.uid === contest.uid)) continue;
-      prefetched.unshift({ contest, me: NO_ME });
+    // Sur la première page seulement : rajouté à chaque page, il reviendrait
+    // en tête de chacune.
+    if (cursor === null) {
+      for (const contest of await loadActiveContests()) {
+        if (prefetched.some((entry) => entry.contest.uid === contest.uid)) continue;
+        prefetched.unshift({ contest, me: NO_ME });
+      }
     }
 
     return {
@@ -73,6 +77,7 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
       contests: prefetched.map((entry) =>
         contestCard(entry.contest.uid, entry.contest.doc, entry.me),
       ),
+      olderCursor: judged.olderCursor,
     };
   }),
 );
@@ -88,6 +93,7 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const petUid = requiredParam(query, "petUid");
     const userUid = param(query, "userUid") ?? null;
+    const cursor = param(query, "cursor") ?? null;
 
     const now = Date.now();
     const pet = await loadPet(petUid);
@@ -95,15 +101,15 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
 
     const [owner, participations] = await Promise.all([
       loadUser(pet.doc.userUid),
-      loadParticipations(petUid),
+      loadParticipations(petUid, cursor),
     ]);
     if (!owner) throw notFound(`propriétaire de ${petUid} introuvable`);
 
     const contests = await loadContestsByIds(
-      participations.map((entry) => entry.contestUid),
+      participations.rows.map((entry) => entry.contestUid),
     );
 
-    const shelf: PetShelfEntry[] = participations.flatMap((entry) => {
+    const shelf: PetShelfEntry[] = participations.rows.flatMap((entry) => {
       const contest = contests.get(entry.contestUid);
       return contest ? [{ contest, participant: entry.participant }] : [];
     });
@@ -116,7 +122,8 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
     //
     // Seulement chez soi. Sur l'animal d'un autre, la slab d'inscription ne
     // mènerait qu'à un refus — `rejectJoin` exige d'être le propriétaire.
-    if (userUid === pet.doc.userUid) {
+    // Première page seulement, comme côté juré.
+    if (cursor === null && userUid === pet.doc.userUid) {
       for (const contest of await loadOpenContests()) {
         if (shelf.some((entry) => entry.contest.uid === contest.uid)) continue;
         shelf.unshift({ contest, participant: null });
@@ -133,6 +140,7 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
           participant: entry.participant,
         }),
       ),
+      olderCursor: participations.olderCursor,
     };
   }),
 );
