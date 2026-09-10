@@ -113,6 +113,8 @@ function judgeVotes(contest: ContestDoc, judge: ContestJudgeDoc) {
     judged,
     correct: judge.correctVotes,
     wrong: Math.max(0, judged - judge.correctVotes),
+    perDay: contest.maxVotesPerDay,
+    votesPerDay: judge.votesPerDay ?? [],
   };
 }
 
@@ -181,7 +183,7 @@ export function participantRow(
  */
 export function judgeRow(
   judge: ContestJudgeDoc,
-  status: ContestStatusWire,
+  contest: ContestDoc,
   limit: number,
 ): JudgeRowWire {
   return {
@@ -190,10 +192,12 @@ export function judgeRow(
     name: judge.userName,
     avatarUrl: judge.userAvatarUrl,
     judgeSince: toMillisOrZero(judge.joinedAt),
-    votes: status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
+    votes: contest.status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
     castVotes: judge.votes,
     correctVotes: judge.correctVotes,
     limit,
+    perDay: contest.maxVotesPerDay,
+    votesPerDay: judge.votesPerDay ?? [],
     rank: judge.rank,
     registrationIndex: judge.registrationIndex,
     level: judge.gradeAtEntry ?? 0,

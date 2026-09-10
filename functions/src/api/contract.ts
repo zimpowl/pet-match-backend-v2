@@ -41,6 +41,17 @@ export interface ContestMeVotesWire {
   judged: number;
   correct: number;
   wrong: number;
+  /**
+   * L'allocation d'une journée, et ce qui en a été posé jour par jour (D103).
+   * De quoi placer chaque vote sur son créneau : la jauge compte des créneaux,
+   * pas des pourcentages.
+   *
+   * Les concours repris du legacy ont un `votesPerDay` à zéro et un total vrai —
+   * la répartition quotidienne n'a jamais été stockée. La somme ne colle donc
+   * pas au total, et c'est précisément à ça qu'on les reconnaît.
+   */
+  perDay: number;
+  votesPerDay: number[];
 }
 
 export interface ContestMeWire {
@@ -123,6 +134,9 @@ export interface JudgeRowWire {
   castVotes: number;
   correctVotes: number;
   limit: number;
+  /** Voir `ContestMeVotesWire` (D103). */
+  perDay: number;
+  votesPerDay: number[];
   rank: number | null;
   registrationIndex: number;
   level: number;

@@ -114,7 +114,15 @@ test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
   assert.equal(me.role, "JUDGE");
   // 33 posés, 30 tranchés au dernier 18 h, 25 justes : les 3 derniers votes
   // n'ont pas encore de verdict et ne comptent ni juste ni faux.
-  assert.deepEqual(me.votes, { cast: 33, limit: 70, judged: 30, correct: 25, wrong: 5 });
+  assert.deepEqual(me.votes, {
+    cast: 33,
+    limit: 70,
+    judged: 30,
+    correct: 25,
+    wrong: 5,
+    perDay: 10,
+    votesPerDay: [10, 10, 10, 3, 0, 0, 0],
+  });
 });
 
 test("à la clôture, tout ce qui est posé est jugé", () => {
@@ -123,7 +131,15 @@ test("à la clôture, tout ce qui est posé est jugé", () => {
     judge: judge({ votes: 70, correctVotes: 52 }),
   });
 
-  assert.deepEqual(me.votes, { cast: 70, limit: 70, judged: 70, correct: 52, wrong: 18 });
+  assert.deepEqual(me.votes, {
+    cast: 70,
+    limit: 70,
+    judged: 70,
+    correct: 52,
+    wrong: 18,
+    perDay: 10,
+    votesPerDay: [10, 10, 10, 3, 0, 0, 0],
+  });
 });
 
 test("voter ne fait jamais chuter sa précision : le dénominateur ne bouge qu'à 18 h", () => {
@@ -229,7 +245,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     career: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
   });
 
-  assert.deepEqual(judgeRow(judge(), "CLOSED", 70), {
+  assert.deepEqual(judgeRow(judge(), contest({ status: "CLOSED" }), 70), {
     userUid: "zimpo",
     number: 12,
     name: "Zimpo",
@@ -239,6 +255,8 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     castVotes: 33,
     correctVotes: 25,
     limit: 70,
+    perDay: 10,
+    votesPerDay: [10, 10, 10, 3, 0, 0, 0],
     rank: 4,
     registrationIndex: 8,
     level: 2,
@@ -273,7 +291,7 @@ test("le rang, lui, sort tel quel : c'est l'instantané de 18 h", () => {
 });
 
 test("une ligne de juré ne compte que ses votes jugés, jamais ceux du jour", () => {
-  const row = judgeRow(judge(), "ACTIVE", 70);
+  const row = judgeRow(judge(), contest(), 70);
 
   // Gelés au dernier 18 h, comme l'ELO : 30 jugés, pas les 33 posés.
   assert.equal(row.votes, 30);
@@ -281,6 +299,23 @@ test("une ligne de juré ne compte que ses votes jugés, jamais ceux du jour", (
   // un mensonge, ils n'ont pas encore de verdict.
   assert.equal(row.correctVotes, 25);
   assert.equal(row.limit, 70);
+});
+
+test("la jauge compte des créneaux : l'allocation du jour et ce qu'on y a posé", () => {
+  const row = judgeRow(judge(), contest(), 70);
+
+  assert.equal(row.perDay, 10);
+  assert.deepEqual(row.votesPerDay, [10, 10, 10, 3, 0, 0, 0]);
+});
+
+test("un juré repris du legacy n'a pas de répartition : la somme trahit le total", () => {
+  // La migration pose `votesPerDay` à zéro et garde le total (§10). C'est le
+  // seul signe qui distingue « rien posé » de « on ne sait pas quand ».
+  const legacy = judge({ votesPerDay: [0, 0, 0, 0, 0, 0, 0], votes: 40 });
+  const row = judgeRow(legacy, contest({ status: "CLOSED", maxVotesPerDay: 5 }), 40);
+
+  assert.equal(row.castVotes, 40);
+  assert.equal(row.votesPerDay.reduce((sum, value) => sum + value, 0), 0);
 });
 
 test("mon propre compteur de votes, lui, reste en direct : c'est mon budget", () => {
