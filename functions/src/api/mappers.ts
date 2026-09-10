@@ -206,6 +206,7 @@ export function duelPet(participant: ContestParticipantDoc): DuelPetWire {
     petUid: participant.petId,
     name: participant.petName,
     photoUrl: participant.photoUrl ?? null,
+    elo: participant.elo,
   };
 }
 

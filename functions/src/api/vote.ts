@@ -45,9 +45,10 @@ import { callerUid } from "../http/identity";
  * n'existe pas avant, et c'est ici qu'il naît, avec son `judgeNumber` tiré de la
  * séquence globale (D83) si le joueur n'en avait pas encore.
  *
- * Le retour ne contient que le **partage des voix** du duel (§4.5 bis) : ni ELO,
- * ni rang, ni justesse. La justesse n'est même pas connue — un vote est juste si
- * l'animal choisi finit devant, ce qui ne se sait qu'à la clôture.
+ * Le retour ne contient que l'allocation du jour : ni ELO, ni rang, ni justesse.
+ * Le verdict est déjà à l'écran quand la réponse arrive — l'app l'a calculé sur
+ * les ELO servis avec le duel (D97). La justesse, elle, n'est même pas connue :
+ * un vote est juste si l'animal choisi finit devant, ce qui attend la clôture.
  */
 export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<VoteSubmissionResponse> => {
@@ -225,8 +226,6 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         votesPerDay,
         votesCast: votesAfter,
         maxVotesPerDay: contest.maxVotesPerDay,
-        pickedElo,
-        otherElo,
       };
     });
 
@@ -237,8 +236,6 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         secondsToReset: secondsToReset(now, cast.startAt),
       },
       votesCast: cast.votesCast,
-      pickedElo: cast.pickedElo,
-      otherElo: cast.otherElo,
     };
   }),
 );

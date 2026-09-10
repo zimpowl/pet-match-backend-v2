@@ -166,6 +166,15 @@ export interface DuelPetWire {
   petUid: string;
   name: string;
   photoUrl: string | null;
+  /**
+   * L'ELO **vivant**, pas l'instantané de 18 h (D97). C'est la seule lecture du
+   * jeu qui échappe au gel du §4.2 bis, et il lui faut cette exception : le duel
+   * est servi avec de quoi calculer les chances des deux animaux, pour que l'app
+   * puisse afficher le verdict à l'instant du clic sans attendre le réseau.
+   *
+   * Il n'est jamais montré tel quel — l'app n'en publie que le pourcentage.
+   */
+  elo: number;
 }
 
 export interface DuelWire {
@@ -209,19 +218,16 @@ export interface PetProfileResponse {
   contests: ContestCardWire[];
 }
 
+/**
+ * Le vote ne renvoie que ce que l'app ne peut pas savoir : son allocation. Le
+ * verdict, lui, est déjà affiché — il se calcule sur les ELO reçus avec le duel
+ * (D97), au moment du clic. Renvoyer les ELO **après** le vote serait pire
+ * qu'inutile : l'animal choisi vient forcément de gagner des points, donc il
+ * mènerait presque toujours, et le verdict serait vert quoi qu'on choisisse.
+ */
 export interface VoteSubmissionResponse {
   dailyVotes: DailyVotesWire;
   votesCast: number;
-  /**
-   * Les deux ELO **après** ce vote, donc à l'instant T (D94). Le juré voit
-   * aussitôt s'il a choisi celui qui mène — c'est le verdict provisoire, et il
-   * ne présume pas de la clôture, qui se décide sur l'ELO final (§2.1).
-   *
-   * Le partage des voix a disparu : il disait ce que les autres pensent, pas
-   * qui est devant. Deux jeux différents, et c'est celui-ci qu'on garde.
-   */
-  pickedElo: number;
-  otherElo: number;
 }
 
 export interface JoinContestResponse {
