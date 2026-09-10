@@ -1,7 +1,12 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { JudgeProfileResponse, JudgeWire, PetProfileResponse } from "./contract";
 import { NO_ME, contestCard, judgeProfile, petProfile } from "./mappers";
-import { loadActiveContests, loadContestsByIds } from "../data/contests";
+import {
+  LoadedContest,
+  loadActiveContests,
+  loadContestsByIds,
+  loadOpenContests,
+} from "../data/contests";
 import { USERS, db } from "../firebase";
 import { UserDoc } from "../models/user";
 import {
@@ -22,6 +27,12 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { ContestParticipantDoc } from "../models/contest";
+
+interface PetShelfEntry {
+  readonly contest: LoadedContest;
+  readonly participant: ContestParticipantDoc | null;
+}
 
 /** Profil de juré : l'en-tête, ses animaux, et les concours qu'il a jugés. */
 export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
@@ -92,21 +103,36 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
       participations.map((entry) => entry.contestUid),
     );
 
+    const shelf: PetShelfEntry[] = participations.flatMap((entry) => {
+      const contest = contests.get(entry.contestUid);
+      return contest ? [{ contest, participant: entry.participant }] : [];
+    });
+
+    // Le symétrique du D95, côté animal (D98) : l'étagère ne connaît que les
+    // concours où un document participant existe, et ce document naît de
+    // l'inscription — le propriétaire n'avait donc aucune porte d'entrée pour
+    // inscrire son animal. On ajoute le concours **ouvert**, pas celui qui
+    // court : on ne s'inscrit qu'en DRAFT (D39).
+    //
+    // Seulement chez soi. Sur l'animal d'un autre, la slab d'inscription ne
+    // mènerait qu'à un refus — `rejectJoin` exige d'être le propriétaire.
+    if (userUid === pet.doc.userUid) {
+      for (const contest of await loadOpenContests()) {
+        if (shelf.some((entry) => entry.contest.uid === contest.uid)) continue;
+        shelf.unshift({ contest, participant: null });
+      }
+    }
+
     return {
       dailyVotes: await resolveDailyVotes(userUid, now),
       pet: petProfile(pet.uid, pet.doc),
       owner: judgeProfile(pet.doc.userUid, owner),
-      contests: participations.flatMap((entry) => {
-        const contest = contests.get(entry.contestUid);
-        return contest ?
-          [
-            contestCard(contest.uid, contest.doc, {
-              ...NO_ME,
-              participant: entry.participant,
-            }),
-          ] :
-          [];
-      }),
+      contests: shelf.map((entry) =>
+        contestCard(entry.contest.uid, entry.contest.doc, {
+          ...NO_ME,
+          participant: entry.participant,
+        }),
+      ),
     };
   }),
 );

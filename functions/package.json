@@ -14,7 +14,8 @@
     "migrate": "tsc && node lib/admin/migrate.js",
     "cleanup": "tsc && node lib/admin/cleanup.js",
     "backup": "tsc && node lib/admin/backup.js",
-    "purge": "tsc && node lib/admin/purge.js"
+    "purge": "tsc && node lib/admin/purge.js",
+    "tokens": "tsc && node lib/admin/tokens.js"
   },
   "engines": {
     "node": "24"

@@ -3,6 +3,7 @@ import {
   ContestDoc,
   ContestJudgeDoc,
   ContestParticipantDoc,
+  ContestStatus,
 } from "../models/contest";
 import { MeSource, NO_ME } from "../api/mappers";
 import { ContestPageRequest } from "../core/pagination";
@@ -57,14 +58,25 @@ export async function loadContestPage(request: ContestPageRequest): Promise<Cont
   return { contests: ascending ? docs.reverse() : docs, hasMore };
 }
 
-export async function loadActiveContests(): Promise<LoadedContest[]> {
+async function loadByStatus(status: ContestStatus): Promise<LoadedContest[]> {
   const snap = await contests()
-    .where("status", "==", "ACTIVE")
+    .where("status", "==", status)
     .orderBy("number", "desc")
     .limit(ACTIVE_CONTESTS_LIMIT)
     .get();
   return snap.docs.map(loaded);
 }
+
+/** Ceux qui courent : on y vote (D95). */
+export const loadActiveContests = () => loadByStatus("ACTIVE");
+
+/**
+ * Ceux qui sont **ouverts à l'inscription**. L'inscription ne vaut qu'en DRAFT
+ * (D39) — il faut connaître le nombre de participants pour figer le plafond —
+ * donc le concours ouvert n'est jamais celui qui court, c'est le suivant, publié
+ * une semaine à l'avance (D88).
+ */
+export const loadOpenContests = () => loadByStatus("DRAFT");
 
 export async function loadPetIds(userUid: string): Promise<string[]> {
   const snap = await db
