@@ -8,7 +8,7 @@ function input(overrides: Partial<JoinInput> = {}): JoinInput {
     petOwnerUid: "zimpo",
     callerUid: "zimpo",
     alreadyRegistered: false,
-    petPhotoUrl: "https://placedog.net/300/300?id=42",
+    photoUrl: "https://placedog.net/300/300?id=42",
     ...overrides,
   };
 }
@@ -31,8 +31,8 @@ test("la clé participants/{petUid} empêche le doublon (D89)", () => {
 });
 
 test("sans photo il n'y a rien à juger ni rien à imprimer", () => {
-  assert.equal(rejectJoin(input({ petPhotoUrl: null })), "PET_HAS_NO_PHOTO");
-  assert.equal(rejectJoin(input({ petPhotoUrl: "" })), "PET_HAS_NO_PHOTO");
+  assert.equal(rejectJoin(input({ photoUrl: null })), "PET_HAS_NO_PHOTO");
+  assert.equal(rejectJoin(input({ photoUrl: "" })), "PET_HAS_NO_PHOTO");
 });
 
 test("tous les animaux d'un même joueur peuvent viser le même concours (D89)", () => {

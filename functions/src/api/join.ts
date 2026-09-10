@@ -16,6 +16,7 @@ import {
   conflict,
   forbidden,
   notFound,
+  optionalField,
   requiredField,
   respond,
 } from "../http/respond";
@@ -37,6 +38,10 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
     const userUid = callerUid(query, body);
     const contestUid = requiredField(body, "contestUid");
     const petUid = requiredField(body, "petUid");
+    // La photo choisie pour **ce** concours. Elle est optionnelle : sans elle on
+    // retombe sur celle du profil de l'animal, ce qui reste vrai pour un client
+    // qui n'en propose pas.
+    const chosenPhotoUrl = optionalField(body, "photoUrl");
 
     const now = Date.now();
     const contestRef = db.collection(CONTESTS).doc(contestUid);
@@ -61,12 +66,12 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         petOwnerUid: pet.userUid,
         callerUid: userUid,
         alreadyRegistered: participantSnap.exists,
-        petPhotoUrl: pet.photoUrl,
+        photoUrl: chosenPhotoUrl ?? pet.photoUrl,
       });
       if (rejection) throw joinError(rejection, petUid, contestUid);
 
       // Déjà couvert par PET_HAS_NO_PHOTO ; ici pour le typage.
-      const photoUrl = pet.photoUrl;
+      const photoUrl = chosenPhotoUrl ?? pet.photoUrl;
       if (!photoUrl) throw badRequest(`${petUid} n'a pas de photo`);
 
       // Le rang du premier tour, avant tout classement (D87).
@@ -80,7 +85,10 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         petBreed: pet.breed,
         species: pet.species,
         sex: pet.sex,
-        // La photo inscrite, dénormalisée : c'est elle qui sera imprimée.
+        // La photo **de cette inscription**, dénormalisée : c'est elle qui sera
+        // imprimée, et elle n'a aucune raison d'être celle du profil de
+        // l'animal — un concours par photo, c'est tout l'objet de l'écran
+        // d'inscription (§4.2 bis).
         photoUrl,
         registrationIndex,
         // L'état de l'animal à ce concours-ci (D90). Le concours courant se

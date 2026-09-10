@@ -25,13 +25,17 @@ export interface JoinInput {
   readonly petOwnerUid: string;
   readonly callerUid: string;
   readonly alreadyRegistered: boolean;
-  readonly petPhotoUrl: string | null;
+  /**
+   * La photo **de l'inscription**, pas celle du profil de l'animal : c'est
+   * elle qui sera imprimée sur la slab, et c'est donc elle qui doit exister.
+   */
+  readonly photoUrl: string | null;
 }
 
 export function rejectJoin(input: JoinInput): JoinRejection | null {
   if (input.petOwnerUid !== input.callerUid) return "NOT_OWNER";
   if (input.status !== "DRAFT") return "CONTEST_NOT_DRAFT";
   if (input.alreadyRegistered) return "ALREADY_REGISTERED";
-  if (!input.petPhotoUrl) return "PET_HAS_NO_PHOTO";
+  if (!input.photoUrl) return "PET_HAS_NO_PHOTO";
   return null;
 }

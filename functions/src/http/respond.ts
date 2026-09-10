@@ -39,6 +39,14 @@ export function requiredField(body: unknown, name: string): string {
   return value.trim();
 }
 
+/** Le pendant tolérant de `requiredField` : absent, vide ou non-chaîne → null. */
+export function optionalField(body: unknown, name: string): string | null {
+  const source = (body ?? {}) as Record<string, unknown>;
+  const value = source[name];
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  return value.trim();
+}
+
 export function param(query: Query, name: string): string | undefined {
   const raw = query[name];
   if (typeof raw === "string" && raw.length > 0) return raw;
