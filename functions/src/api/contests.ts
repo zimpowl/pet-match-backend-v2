@@ -90,7 +90,7 @@ export const getContestHttp = onRequest({ cors: true }, (req, res) =>
       dailyVotes: await resolveDailyVotes(userUid, now, [{ contest, me: mine }]),
       contest: contestCard(contest.uid, contest.doc, mine),
       participants: participants.map((row) => participantRow(row, contest.doc.status)),
-      judges: judges.map((row) => judgeRow(row, contest.doc.status)),
+      judges: judges.map((row) => judgeRow(row, contest.doc.status, contest.doc.maxVotesPerJudge)),
     };
   }),
 );

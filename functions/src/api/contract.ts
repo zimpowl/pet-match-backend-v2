@@ -117,8 +117,10 @@ export interface JudgeRowWire {
   name: string;
   avatarUrl: string | null;
   judgeSince: number;
+  /** Les votes **jugés** : ceux du dernier 18 h, ou tous une fois clos. */
   votes: number;
   correctVotes: number;
+  limit: number;
   rank: number | null;
   registrationIndex: number;
   level: number;

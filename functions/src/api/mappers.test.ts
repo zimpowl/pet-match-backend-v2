@@ -229,7 +229,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     career: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
   });
 
-  assert.deepEqual(judgeRow(judge(), "CLOSED"), {
+  assert.deepEqual(judgeRow(judge(), "CLOSED", 70), {
     userUid: "zimpo",
     number: 12,
     name: "Zimpo",
@@ -237,6 +237,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     judgeSince: START,
     votes: 33,
     correctVotes: 25,
+    limit: 70,
     rank: 4,
     registrationIndex: 8,
     level: 2,
@@ -270,12 +271,15 @@ test("le rang, lui, sort tel quel : c'est l'instantané de 18 h", () => {
   assert.equal(participantRow(participant({ rank: null }), "ACTIVE").rank, null);
 });
 
-test("pendant le concours, un juré est classé sur les votes posés (D11)", () => {
-  const row = judgeRow(judge(), "ACTIVE");
+test("une ligne de juré ne compte que ses votes jugés, jamais ceux du jour", () => {
+  const row = judgeRow(judge(), "ACTIVE", 70);
 
-  // Gelés au dernier 18 h, comme l'ELO : 30 posés, pas les 33 d'aujourd'hui.
+  // Gelés au dernier 18 h, comme l'ELO : 30 jugés, pas les 33 posés.
   assert.equal(row.votes, 30);
-  assert.equal(row.correctVotes, 0);
+  // La justesse est celle de ces 30 : peindre les 3 derniers en faux serait
+  // un mensonge, ils n'ont pas encore de verdict.
+  assert.equal(row.correctVotes, 25);
+  assert.equal(row.limit, 70);
 });
 
 test("mon propre compteur de votes, lui, reste en direct : c'est mon budget", () => {

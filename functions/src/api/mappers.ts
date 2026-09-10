@@ -182,6 +182,7 @@ export function participantRow(
 export function judgeRow(
   judge: ContestJudgeDoc,
   status: ContestStatusWire,
+  limit: number,
 ): JudgeRowWire {
   return {
     userUid: judge.userUid,
@@ -190,7 +191,8 @@ export function judgeRow(
     avatarUrl: judge.userAvatarUrl,
     judgeSince: toMillisOrZero(judge.joinedAt),
     votes: status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
-    correctVotes: status === "CLOSED" ? judge.correctVotes : 0,
+    correctVotes: judge.correctVotes,
+    limit,
     rank: judge.rank,
     registrationIndex: judge.registrationIndex,
     level: judge.gradeAtEntry ?? 0,
