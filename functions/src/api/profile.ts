@@ -1,7 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { JudgeProfileResponse, JudgeWire, PetProfileResponse } from "./contract";
 import { NO_ME, contestCard, judgeProfile, petProfile } from "./mappers";
-import { loadContestsByIds } from "../data/contests";
+import { loadActiveContests, loadContestsByIds } from "../data/contests";
 import { USERS, db } from "../firebase";
 import { UserDoc } from "../models/user";
 import {
@@ -11,7 +11,7 @@ import {
   loadPets,
   loadUser,
 } from "../data/profile";
-import { resolveDailyVotes } from "../data/dailyVotes";
+import { PrefetchedContest, resolveDailyVotes } from "../data/dailyVotes";
 import {
   JsonResponse,
   Query,
@@ -38,12 +38,22 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
     if (!user) throw notFound(`utilisateur ${userUid} introuvable`);
 
     const contests = await loadContestsByIds(judged.map((entry) => entry.contestUid));
-    const prefetched = judged.flatMap((entry) => {
+    const prefetched: PrefetchedContest[] = judged.flatMap((entry) => {
       const contest = contests.get(entry.contestUid);
       return contest ?
         [{ contest, me: { participant: null, judge: entry.judge } }] :
         [];
     });
+
+    // Le concours en cours figure sur l'étagère même sans y avoir jamais voté
+    // (D95). Sans ça un juré neuf ne voit rien : la liste ne connaît que les
+    // concours où un document juré existe déjà, et ce document naît du premier
+    // vote — l'étagère n'offrait donc aucune porte d'entrée.
+    const active = await loadActiveContests();
+    for (const contest of active) {
+      if (prefetched.some((entry) => entry.contest.uid === contest.uid)) continue;
+      prefetched.unshift({ contest, me: NO_ME });
+    }
 
     return {
       dailyVotes: await resolveDailyVotes(userUid, now, prefetched),

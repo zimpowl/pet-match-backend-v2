@@ -20,9 +20,9 @@ export async function resolveDailyVotes(
 ): Promise<DailyVotesWire> {
   if (!userUid) return dailyVotesWire(null, nowMillis, DEFAULT_VOTES_PER_DAY);
 
-  const fromPage = prefetched.find(
-    (entry) => entry.contest.doc.status === "ACTIVE" && entry.me.judge !== null,
-  );
+  // Le concours actif de la page suffit, avec ou sans document juré : sans
+  // lui l'allocation est simplement entière (D95).
+  const fromPage = prefetched.find((entry) => entry.contest.doc.status === "ACTIVE");
   if (fromPage) {
     return dailyVotesWire(
       { contest: fromPage.contest.doc, judge: fromPage.me.judge },

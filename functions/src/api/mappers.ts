@@ -272,12 +272,15 @@ export function dailyVotesWire(
   const capacity = source.contest.maxVotesPerDay || defaultCapacity;
   const day = contestDayIndex(nowMillis, startAt);
 
-  if (day === null || !source.judge) {
-    return { remaining: 0, capacity, secondsToReset: 0 };
-  }
+  if (day === null) return { remaining: 0, capacity, secondsToReset: 0 };
+
+  // Pas de document juré ne veut pas dire « plus de votes » mais « il n'a
+  // encore rien posé » (D95) : son allocation est entière. Le document naîtra
+  // de son premier vote.
+  const votesPerDay = source.judge?.votesPerDay ?? [];
 
   return {
-    remaining: remainingVotesToday(source.judge.votesPerDay ?? [], day, capacity),
+    remaining: remainingVotesToday(votesPerDay, day, capacity),
     capacity,
     secondsToReset: secondsToReset(nowMillis, startAt),
   };
