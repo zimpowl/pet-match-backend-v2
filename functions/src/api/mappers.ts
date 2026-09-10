@@ -191,6 +191,7 @@ export function judgeRow(
     avatarUrl: judge.userAvatarUrl,
     judgeSince: toMillisOrZero(judge.joinedAt),
     votes: status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
+    castVotes: judge.votes,
     correctVotes: judge.correctVotes,
     limit,
     rank: judge.rank,

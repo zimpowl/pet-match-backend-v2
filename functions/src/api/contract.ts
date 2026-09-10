@@ -119,6 +119,8 @@ export interface JudgeRowWire {
   judgeSince: number;
   /** Les votes **jugés** : ceux du dernier 18 h, ou tous une fois clos. */
   votes: number;
+  /** Les votes **posés**, y compris ceux d'aujourd'hui, pas encore tranchés. */
+  castVotes: number;
   correctVotes: number;
   limit: number;
   rank: number | null;
@@ -210,16 +212,16 @@ export interface PetProfileResponse {
 export interface VoteSubmissionResponse {
   dailyVotes: DailyVotesWire;
   votesCast: number;
-  aSharePercent: number;
-  bSharePercent: number;
   /**
-   * Nombre total de votes posés sur ce duel, le mien compris. Le pourcentage
-   * seul est trompeur quand il repose sur une voix : une fois sur cinq le juré
-   * est le premier à voir ce duel, et `100 %` se lit alors « tout le monde est
-   * d'accord avec moi » au lieu de « personne d'autre n'a voté ». À 1, l'app
-   * doit dire « premier verdict » plutôt qu'un pourcentage.
+   * Les deux ELO **après** ce vote, donc à l'instant T (D94). Le juré voit
+   * aussitôt s'il a choisi celui qui mène — c'est le verdict provisoire, et il
+   * ne présume pas de la clôture, qui se décide sur l'ELO final (§2.1).
+   *
+   * Le partage des voix a disparu : il disait ce que les autres pensent, pas
+   * qui est devant. Deux jeux différents, et c'est celui-ci qu'on garde.
    */
-  duelVotes: number;
+  pickedElo: number;
+  otherElo: number;
 }
 
 export interface JoinContestResponse {

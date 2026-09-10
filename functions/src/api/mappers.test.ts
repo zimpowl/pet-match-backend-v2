@@ -236,6 +236,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     avatarUrl: null,
     judgeSince: START,
     votes: 33,
+    castVotes: 33,
     correctVotes: 25,
     limit: 70,
     rank: 4,

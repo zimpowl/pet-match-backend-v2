@@ -20,7 +20,6 @@ import {
   calculateUpdatedElo,
   pairKey,
 } from "../core/elo";
-import { sharePercents } from "../core/share";
 import { VoteRejection, rejectVote } from "../core/voteRules";
 import { toMillisOrZero } from "../core/time";
 import { VoteSubmissionResponse } from "./contract";
@@ -125,18 +124,30 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
       const otherRef = pickedIsA ? bRef : aRef;
 
       const kFactor = contest.eloKFactor || DEFAULT_K_FACTOR;
+      const pickedElo = calculateUpdatedElo(
+        picked.elo,
+        calculateExpectedScore(picked.elo, other.elo),
+        1,
+        kFactor,
+      );
+      const otherElo = calculateUpdatedElo(
+        other.elo,
+        1 - calculateExpectedScore(picked.elo, other.elo),
+        0,
+        kFactor,
+      );
       // `expectedPicked` doit être stocké : sans lui le score de difficulté est
       // définitivement perdu, il n'est pas recalculable après coup (§4.5).
       const expectedPicked = calculateExpectedScore(picked.elo, other.elo);
 
       t.update(pickedRef, {
-        elo: calculateUpdatedElo(picked.elo, expectedPicked, 1, kFactor),
+        elo: pickedElo,
         wins: picked.wins + 1,
         duels: picked.duels + 1,
         votesReceived: picked.votesReceived + 1,
       });
       t.update(otherRef, {
-        elo: calculateUpdatedElo(other.elo, 1 - expectedPicked, 0, kFactor),
+        elo: otherElo,
         losses: other.losses + 1,
         duels: other.duels + 1,
       });
@@ -214,19 +225,10 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         votesPerDay,
         votesCast: votesAfter,
         maxVotesPerDay: contest.maxVotesPerDay,
+        pickedElo,
+        otherElo,
       };
     });
-
-    // Hors transaction : `count()` n'y est pas disponible, et le partage des
-    // voix est de toute façon provisoire — il inclut le vote qu'on vient de poser.
-    const votes = contestRef.collection(VOTES);
-    const [totalSnap, aVotesSnap] = await Promise.all([
-      votes.where("pairKey", "==", key).count().get(),
-      votes.where("pairKey", "==", key).where("pickedPetId", "==", aPetUid).count().get(),
-    ]);
-    const total = totalSnap.data().count;
-    const aVotes = aVotesSnap.data().count;
-    const share = sharePercents(aVotes, Math.max(0, total - aVotes));
 
     return {
       dailyVotes: {
@@ -235,9 +237,8 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         secondsToReset: secondsToReset(now, cast.startAt),
       },
       votesCast: cast.votesCast,
-      aSharePercent: share.a,
-      bSharePercent: share.b,
-      duelVotes: total,
+      pickedElo: cast.pickedElo,
+      otherElo: cast.otherElo,
     };
   }),
 );
