@@ -209,12 +209,6 @@ export interface JudgeProfileResponse {
   judge: JudgeWire;
   pets: PetWire[];
   contests: ContestCardWire[];
-  /**
-   * De quoi demander la suite de l'étagère (D100), null quand on en tient le
-   * bout. L'en-tête et les animaux repartent avec chaque page : c'est quelques
-   * champs pour une requête de moins, et l'app n'en garde que les concours.
-   */
-  olderCursor: string | null;
 }
 
 export interface PetProfileResponse {
@@ -222,8 +216,6 @@ export interface PetProfileResponse {
   pet: PetWire;
   owner: JudgeWire;
   contests: ContestCardWire[];
-  /** Voir `JudgeProfileResponse.olderCursor` (D100). */
-  olderCursor: string | null;
 }
 
 /**
