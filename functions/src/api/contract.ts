@@ -38,7 +38,7 @@ export interface ContestMePetWire {
 export interface ContestMeVotesWire {
   cast: number;
   limit: number;
-  perDay: number;
+  judged: number;
   correct: number;
   wrong: number;
 }

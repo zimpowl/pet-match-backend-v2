@@ -99,18 +99,20 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
 }
 
 /**
- * La justesse est recalculée à chaque 18 h contre les ELO de l'instantané
- * (D93), donc elle existe dès le premier résultat et non plus seulement à la
- * clôture. `perDay` accompagne le plafond : c'est lui qui donne le
- * dénominateur de la précision, la fenêtre déjà validée.
+ * `judged` est le nombre de votes déjà tranchés — ceux du dernier 18 h. Les
+ * votes posés depuis n'ont pas encore de verdict : les compter faux les
+ * peindrait en rouge à tort, et voter ferait chuter sa propre précision. Le
+ * dénominateur, c'est donc ce qui est jugé, jamais ce qui vient d'être posé.
  */
 function judgeVotes(contest: ContestDoc, judge: ContestJudgeDoc) {
+  const judged = contest.status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0;
+
   return {
     cast: judge.votes,
     limit: contest.maxVotesPerJudge,
-    perDay: contest.maxVotesPerDay,
+    judged,
     correct: judge.correctVotes,
-    wrong: Math.max(0, judge.votes - judge.correctVotes),
+    wrong: Math.max(0, judged - judge.correctVotes),
   };
 }
 

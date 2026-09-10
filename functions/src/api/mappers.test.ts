@@ -108,30 +108,33 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
   });
 });
 
-test("la justesse existe dès le premier 18 h, pas seulement à la clôture (D93)", () => {
+test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
   const me = meWire(contest(), { participant: null, judge: judge() });
 
   assert.equal(me.role, "JUDGE");
-  assert.deepEqual(me.votes, { cast: 33, limit: 70, perDay: 10, correct: 25, wrong: 8 });
+  // 33 posés, 30 tranchés au dernier 18 h, 25 justes : les 3 derniers votes
+  // n'ont pas encore de verdict et ne comptent ni juste ni faux.
+  assert.deepEqual(me.votes, { cast: 33, limit: 70, judged: 30, correct: 25, wrong: 5 });
 });
 
-test("à la clôture, justes et faux couvrent tout le plafond", () => {
+test("à la clôture, tout ce qui est posé est jugé", () => {
   const me = meWire(contest({ status: "CLOSED" }), {
     participant: null,
     judge: judge({ votes: 70, correctVotes: 52 }),
   });
 
-  assert.deepEqual(me.votes, { cast: 70, limit: 70, perDay: 10, correct: 52, wrong: 18 });
+  assert.deepEqual(me.votes, { cast: 70, limit: 70, judged: 70, correct: 52, wrong: 18 });
 });
 
-test("l'allocation quotidienne accompagne le plafond : c'est le dénominateur", () => {
-  const small = meWire(contest({ maxVotesPerJudge: 35, maxVotesPerDay: 5 }), {
+test("voter ne fait jamais chuter sa précision : le dénominateur ne bouge qu'à 18 h", () => {
+  const before = meWire(contest(), { participant: null, judge: judge() });
+  const afterVoting = meWire(contest(), {
     participant: null,
-    judge: judge(),
+    judge: judge({ votes: 38 }),
   });
 
-  assert.equal(small.votes?.perDay, 5);
-  assert.equal(small.votes?.limit, 35);
+  assert.equal(before.votes?.judged, afterVoting.votes?.judged);
+  assert.equal(before.votes?.correct, afterVoting.votes?.correct);
 });
 
 test("l'ELO de mon animal suit la même règle d'instantané (D54)", () => {
