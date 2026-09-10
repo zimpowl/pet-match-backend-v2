@@ -265,13 +265,15 @@ async function snapshot(
   ]);
 
   // La justesse du soir porte sur **tous** les votes de la semaine, rejugés
-  // contre les ELO qu'on vient de figer : c'est une estimation, et elle bouge
-  // tant que les ELO bougent (D93). Le classement, lui, reste celui des jurés
-  // les plus actifs (D11) — d'où la map de tri vide.
+  // contre les ELO qu'on vient de figer (D93), et elle **classe** dès le
+  // premier soir (D96) : mardi on voit le classement qu'on aurait si tout
+  // s'arrêtait là. Le tri restant un compte de votes justes et non un taux,
+  // voter plus paie toujours — trente votes à moitié justes devancent cinq
+  // votes parfaits.
   const results = await scoreJudges(ref, participants);
 
   const rankedPets = rankParticipants(ref, participants.docs, writes, true);
-  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true, new Map());
+  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true);
 
   for (const row of rankedPets) {
     // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
@@ -527,20 +529,16 @@ function rankJudges(
   results: ReadonlyMap<string, { correctVotes: number; difficultyScore: number }>,
   writes: Batcher,
   freeze: boolean,
-  sortResults: ReadonlyMap<string, { correctVotes: number; difficultyScore: number }> = results,
 ): RankedJudge[] {
   const rows = docs.map((doc) => {
     const data = doc.data() as ContestJudgeDoc;
     const result = results.get(doc.id);
-    const sorted = sortResults.get(doc.id);
     return {
       userUid: doc.id,
       data,
-      written: result?.correctVotes ?? 0,
-      writtenDifficulty: result?.difficultyScore ?? 0,
-      correctVotes: sorted?.correctVotes ?? 0,
+      correctVotes: result?.correctVotes ?? 0,
       votes: data.votes,
-      difficultyScore: sorted?.difficultyScore ?? 0,
+      difficultyScore: result?.difficultyScore ?? 0,
       joinedAt: toMillisOrZero(data.joinedAt),
     };
   });
@@ -555,15 +553,15 @@ function rankJudges(
       rank: rankValue,
       rankPrevious: row.data.rank ?? null,
       votes: row.data.votes,
-      correctVotes: row.written,
+      correctVotes: row.correctVotes,
     });
     writes.set(
       ref.collection(JUDGES).doc(row.userUid),
       {
         rank: rankValue,
         rankPrevious: row.data.rank ?? null,
-        correctVotes: row.written,
-        difficultyScore: row.writtenDifficulty,
+        correctVotes: row.correctVotes,
+        difficultyScore: row.difficultyScore,
         ...(freeze ? { votesSnapshot: row.data.votes } : {}),
       },
       true,
