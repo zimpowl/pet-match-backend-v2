@@ -9,7 +9,6 @@ import {
   loadParticipantsByIds,
 } from "../data/contests";
 import { resolveDailyVotes } from "../data/dailyVotes";
-import { toMillisOrZero } from "../core/time";
 import { JsonResponse, Query, notFound, requiredParam, respond } from "../http/respond";
 
 /**
@@ -53,10 +52,6 @@ export const getVoteSessionHttp = onRequest({ cors: true }, (req, res) =>
       }),
       votesCast: judge?.votes ?? 0,
       votesLimit: contest.doc.maxVotesPerJudge,
-      perDay: contest.doc.maxVotesPerDay,
-      votesPerDay: judge?.votesPerDay ?? [],
-      startAt: toMillisOrZero(contest.doc.startAt),
-      avatarUrl: judge?.userAvatarUrl ?? null,
     };
   }),
 );

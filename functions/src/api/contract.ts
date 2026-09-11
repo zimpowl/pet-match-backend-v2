@@ -218,18 +218,6 @@ export interface VoteSessionResponse {
   duels: DuelWire[];
   votesCast: number;
   votesLimit: number;
-  /**
-   * De quoi dessiner l'anneau des sessions quand l'allocation est épuisée
-   * (D104) : le nombre de sessions est `votesLimit / perDay`, `startAt` dit
-   * laquelle est en cours, et `votesPerDay` ce qui a été posé dans chacune.
-   *
-   * L'avatar vient du **document juré**, qui le dénormalise déjà : c'est une
-   * lecture de moins, et le doc existe forcément dès qu'on a voté une fois.
-   */
-  perDay: number;
-  votesPerDay: number[];
-  startAt: number;
-  avatarUrl: string | null;
 }
 
 export interface JudgeProfileResponse {
