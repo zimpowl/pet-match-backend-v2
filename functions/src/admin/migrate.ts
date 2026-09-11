@@ -61,6 +61,13 @@ import {
  */
 
 const BATCH_SIZE = 400;
+
+/**
+ * Le legacy ne demandait pas la nationalité et l'app s'est jouée en France.
+ * La supposer vaut mieux que de laisser un drapeau vide sur toutes les slabs
+ * reprises ; qui vient d'ailleurs la corrigera sur sa fiche.
+ */
+const FRANCE = "FR";
 const EMPTY_STATS: StatsDoc = {
   contests: 0,
   bestRank: null,
@@ -550,7 +557,7 @@ async function main(): Promise<void> {
       sex: null,
       breed: fields.breed,
       birthDate: null,
-      countryCode: null,
+      countryCode: FRANCE,
       createdAt: Timestamp.fromMillis(millis(created.source.createdAt, Date.now())),
       microchipId: null,
       verifiedAt: null,
@@ -580,7 +587,7 @@ async function main(): Promise<void> {
         sex: mapSex(pet.gender),
         breed: pet.breed ?? null,
         birthDate: birthDate === null ? null : Timestamp.fromMillis(birthDate),
-        countryCode: null,
+        countryCode: FRANCE,
         microchipId: null,
         verifiedAt: null,
         grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
@@ -609,7 +616,7 @@ async function main(): Promise<void> {
       // Les concours déjà joués gardent la leur, dénormalisée sur le doc juré.
       avatarUrl: null,
       description: user.description ?? null,
-      countryCode: null,
+      countryCode: FRANCE,
       // Les jetons FCM du legacy appartiennent au projet de prod : le projet
       // de debug ne peut pas pousser dessus, et `data/notify.ts` efface tout
       // jeton que FCM refuse. Les migrer reviendrait à les faire supprimer au

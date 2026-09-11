@@ -240,6 +240,7 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
 export function petProfile(petUid: string, pet: PetDoc): PetWire {
   return {
     petUid,
+    userUid: pet.userUid,
     number: pet.number,
     name: pet.name,
     photoUrl: pet.photoUrl,

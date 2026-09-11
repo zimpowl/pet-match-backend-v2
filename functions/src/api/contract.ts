@@ -166,6 +166,8 @@ export interface JudgeWire {
 
 export interface PetWire {
   petUid: string;
+  /** À qui il appartient : sans lui, on ne sait pas quel profil ouvrir. */
+  userUid: string;
   number: number;
   name: string;
   photoUrl: string | null;
