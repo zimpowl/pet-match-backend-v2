@@ -42,6 +42,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     const created: UserDoc = {
       name: "",
       nickname: null,
+      deletedAt: null,
       avatarUrl: null,
       description: null,
       countryCode: null,

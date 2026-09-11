@@ -114,6 +114,7 @@ function buildUser(
   return {
     name,
     nickname: name,
+    deletedAt: null,
     notifications: null,
     avatarUrl,
     description: null,
@@ -174,6 +175,7 @@ function seed(writer: Writer, nowMillis: number): void {
       createdAt: stamp(accountCreatedAt + index * 1000),
       microchipId: null,
       verifiedAt: null,
+      deletedAt: null,
       grade: { level: 0 },
       stats: {
         contests: playedContests.length,
@@ -237,6 +239,7 @@ function seed(writer: Writer, nowMillis: number): void {
     createdAt: stamp(accountCreatedAt + 5000),
     microchipId: null,
     verifiedAt: null,
+    deletedAt: null,
     grade: { level: 0 },
     stats: EMPTY_STATS,
   };

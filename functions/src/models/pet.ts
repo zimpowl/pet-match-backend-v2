@@ -15,6 +15,8 @@ export interface PetDoc {
   createdAt: firestore.Timestamp;
   microchipId: string | null;
   verifiedAt: firestore.Timestamp | null;
+  /** Retiré de l'étagère et de la recherche ; ses participations demeurent. */
+  deletedAt: firestore.Timestamp | null;
   /** Grade de l'animal (§4.8), progression séparée de celle du juré. */
   grade: { level: number };
   stats: StatsDoc;

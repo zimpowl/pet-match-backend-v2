@@ -224,11 +224,16 @@ function stats(source: StatsWire | undefined): StatsWire {
   };
 }
 
+const CLOSED_ACCOUNT = "Compte supprimé";
+
 export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
   return {
     userUid,
     number: user.judgeNumber ?? 0,
-    name: user.nickname ?? user.name,
+    // Un compte fermé ne s'annonce plus par son nom. Les concours déjà joués
+    // gardent le leur, dénormalisé sur le document juré : c'est la trace qui
+    // reste, pas l'identité.
+    name: user.deletedAt ? CLOSED_ACCOUNT : user.nickname ?? user.name,
     avatarUrl: user.avatarUrl,
     judgeSince: toMillisOrZero(user.judgeSince ?? user.createdAt),
     countryCode: user.countryCode,

@@ -34,7 +34,10 @@ export async function loadPets(userUid: string): Promise<LoadedPet[]> {
     .where("userUid", "==", userUid)
     .orderBy("createdAt", "desc")
     .get();
-  return snap.docs.map((doc) => ({ uid: doc.id, doc: doc.data() as PetDoc }));
+  // Un animal retiré quitte l'étagère, pas les concours où il a couru.
+  return snap.docs
+    .map((doc) => ({ uid: doc.id, doc: doc.data() as PetDoc }))
+    .filter((pet) => !pet.doc.deletedAt);
 }
 
 /**

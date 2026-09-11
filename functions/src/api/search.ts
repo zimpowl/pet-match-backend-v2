@@ -32,10 +32,15 @@ export const searchByNumberHttp = onRequest({ cors: true }, (req, res) =>
       db.collection(USERS).where("judgeNumber", "==", number).limit(MAX_PER_KIND).get(),
     ]);
 
+    // Ce qui est fermé ne se retrouve pas : la donnée reste, l'objet non.
     return {
       contests: contests.docs.map((doc) => contestCard(doc.id, doc.data() as ContestDoc)),
-      pets: pets.docs.map((doc) => petProfile(doc.id, doc.data() as PetDoc)),
-      judges: judges.docs.map((doc) => judgeProfile(doc.id, doc.data() as UserDoc)),
+      pets: pets.docs
+        .filter((doc) => !(doc.data() as PetDoc).deletedAt)
+        .map((doc) => petProfile(doc.id, doc.data() as PetDoc)),
+      judges: judges.docs
+        .filter((doc) => !(doc.data() as UserDoc).deletedAt)
+        .map((doc) => judgeProfile(doc.id, doc.data() as UserDoc)),
     };
   }),
 );

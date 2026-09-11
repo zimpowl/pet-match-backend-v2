@@ -561,6 +561,7 @@ async function main(): Promise<void> {
       createdAt: Timestamp.fromMillis(millis(created.source.createdAt, Date.now())),
       microchipId: null,
       verifiedAt: null,
+      deletedAt: null,
       grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
       stats: statsFromRanks(petRanks.get(petId) ?? []),
     };
@@ -590,6 +591,7 @@ async function main(): Promise<void> {
         countryCode: FRANCE,
         microchipId: null,
         verifiedAt: null,
+        deletedAt: null,
         grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
         stats: statsFromRanks(petRanks.get(petId) ?? []),
       },
@@ -610,6 +612,7 @@ async function main(): Promise<void> {
       // Personne n'a encore choisi de pseudo : l'app le demandera au premier
       // lancement, et les concours déjà joués gardent le nom qui les a signés.
       nickname: null,
+      deletedAt: null,
       // L'avatar social ne compte pas pour une photo de juré : sur iOS il
       // n'existe pas, et le laisser passer ferait deux exigences pour un même
       // produit. Tout le monde repart sans, et la choisit au premier lancement.

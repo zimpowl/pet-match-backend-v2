@@ -370,6 +370,7 @@ test("un animal sans date de naissance renvoie null, pas zéro", () => {
     createdAt: stamp(START),
     microchipId: null,
     verifiedAt: null,
+    deletedAt: null,
     grade: { level: 0 },
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
   };
@@ -382,6 +383,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
   const user: UserDoc = {
     name: "Zimpo",
     nickname: null,
+    deletedAt: null,
     notifications: null,
     avatarUrl: null,
     description: null,

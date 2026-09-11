@@ -42,6 +42,13 @@ export interface UserDoc {
    * le résultat du soir, et le rappel de l'après-midi.
    */
   notifications: { results: boolean; reminders: boolean } | null;
+  /**
+   * Compte fermé. Rien n'est effacé : les concours joués gardent le nom et la
+   * photo qui les ont signés, et les votes restent comptés — les retirer
+   * fausserait l'ELO de tous les autres. Ce qui disparaît, c'est **l'identité
+   * vivante** : pseudo, avatar et jeton de notification.
+   */
+  deletedAt: firestore.Timestamp | null;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;
