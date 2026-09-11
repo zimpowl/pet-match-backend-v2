@@ -109,11 +109,9 @@ function judgeVotes(contest: ContestDoc, judge: ContestJudgeDoc) {
 
   return {
     cast: judge.votes,
-    limit: contest.maxVotesPerJudge,
     judged,
     correct: judge.correctVotes,
     wrong: Math.max(0, judged - judge.correctVotes),
-    perDay: contest.maxVotesPerDay,
     votesPerDay: judge.votesPerDay ?? [],
   };
 }
@@ -129,6 +127,8 @@ export function contestCard(
     theme: contest.theme,
     status: contest.status,
     startAt: toMillisOrZero(contest.startAt),
+    votesLimit: contest.maxVotesPerJudge,
+    votesPerDay: contest.maxVotesPerDay,
     endAt: toMillisOrZero(contest.endAt),
     counts: {
       judges: contest.counts?.judges ?? 0,

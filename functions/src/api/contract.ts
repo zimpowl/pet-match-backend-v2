@@ -37,20 +37,14 @@ export interface ContestMePetWire {
 
 export interface ContestMeVotesWire {
   cast: number;
-  limit: number;
   judged: number;
   correct: number;
   wrong: number;
   /**
-   * L'allocation d'une journée, et ce qui en a été posé jour par jour (D103).
-   * De quoi placer chaque vote sur son créneau : la jauge compte des créneaux,
-   * pas des pourcentages.
-   *
-   * Les concours repris du legacy ont un `votesPerDay` à zéro et un total vrai —
-   * la répartition quotidienne n'a jamais été stockée. La somme ne colle donc
-   * pas au total, et c'est précisément à ça qu'on les reconnaît.
+   * Ce qui a été posé jour par jour (D103) : de quoi placer chaque vote sur sa
+   * session. Les concours repris du legacy ont un tableau à zéro et un total
+   * vrai — la répartition n'a jamais été stockée, et la somme les trahit.
    */
-  perDay: number;
   votesPerDay: number[];
 }
 
@@ -96,6 +90,14 @@ export interface ContestCardWire {
   startAt: number;
   endAt: number;
   counts: ContestCountsWire;
+  /**
+   * Le plafond du concours et l'allocation d'une journée, figés à l'activation
+   * (D41). Ils sont **du concours**, pas de moi : sans ça un juré qui n'a jamais
+   * voté n'a pas de `me.votes`, donc pas d'anneau — alors qu'il a autant de
+   * sessions manquées à voir que les autres (D105).
+   */
+  votesLimit: number;
+  votesPerDay: number;
   me: ContestMeWire;
 }
 

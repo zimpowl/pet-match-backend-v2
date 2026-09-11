@@ -116,11 +116,9 @@ test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
   // n'ont pas encore de verdict et ne comptent ni juste ni faux.
   assert.deepEqual(me.votes, {
     cast: 33,
-    limit: 70,
     judged: 30,
     correct: 25,
     wrong: 5,
-    perDay: 10,
     votesPerDay: [10, 10, 10, 3, 0, 0, 0],
   });
 });
@@ -133,11 +131,9 @@ test("à la clôture, tout ce qui est posé est jugé", () => {
 
   assert.deepEqual(me.votes, {
     cast: 70,
-    limit: 70,
     judged: 70,
     correct: 52,
     wrong: 18,
-    perDay: 10,
     votesPerDay: [10, 10, 10, 3, 0, 0, 0],
   });
 });
@@ -301,11 +297,14 @@ test("une ligne de juré ne compte que ses votes jugés, jamais ceux du jour", (
   assert.equal(row.limit, 70);
 });
 
-test("la jauge compte des créneaux : l'allocation du jour et ce qu'on y a posé", () => {
-  const row = judgeRow(judge(), contest(), 70);
+test("le plafond et l'allocation sont du concours, pas de moi (D105)", () => {
+  // Sans ça, un juré qui n'a jamais voté n'a pas de `me.votes` — donc pas
+  // d'anneau, alors qu'il a autant de sessions manquées à voir que les autres.
+  const card = contestCard("beaute", contest(), NO_ME);
 
-  assert.equal(row.perDay, 10);
-  assert.deepEqual(row.votesPerDay, [10, 10, 10, 3, 0, 0, 0]);
+  assert.equal(card.votesLimit, 70);
+  assert.equal(card.votesPerDay, 10);
+  assert.equal(card.me.votes, null);
 });
 
 test("un juré repris du legacy n'a pas de répartition : la somme trahit le total", () => {
