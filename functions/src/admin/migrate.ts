@@ -603,7 +603,11 @@ async function main(): Promise<void> {
       // Personne n'a encore choisi de pseudo : l'app le demandera au premier
       // lancement, et les concours déjà joués gardent le nom qui les a signés.
       nickname: null,
-      avatarUrl: user.avatarUrl ?? null,
+      // L'avatar social ne compte pas pour une photo de juré : sur iOS il
+      // n'existe pas, et le laisser passer ferait deux exigences pour un même
+      // produit. Tout le monde repart sans, et la choisit au premier lancement.
+      // Les concours déjà joués gardent la leur, dénormalisée sur le doc juré.
+      avatarUrl: null,
       description: user.description ?? null,
       countryCode: null,
       // Les jetons FCM du legacy appartiennent au projet de prod : le projet
