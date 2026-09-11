@@ -39,6 +39,7 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<JudgeProfileResponse> => {
     const query = req.query as Query;
     const userUid = requiredParam(query, "userUid");
+    const viewerUid = param(query, "viewerUid") ?? userUid;
 
     const now = Date.now();
     const [user, pets, judged] = await Promise.all([
@@ -60,9 +61,15 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
     // (D95). Sans ça un juré neuf ne voit rien : la liste ne connaît que les
     // concours où un document juré existe déjà, et ce document naît du premier
     // vote — l'étagère n'offrait donc aucune porte d'entrée.
-    for (const contest of await loadActiveContests()) {
-      if (prefetched.some((entry) => entry.contest.uid === contest.uid)) continue;
-      prefetched.unshift({ contest, me: NO_ME });
+    //
+    // C'est une **porte d'entrée**, pas un fait du profil : chez soi elle
+    // invite à voter, chez un autre elle raconterait une participation qui
+    // n'existe pas. On ne l'ouvre donc que pour le propriétaire.
+    if (viewerUid === userUid) {
+      for (const contest of await loadActiveContests()) {
+        if (prefetched.some((entry) => entry.contest.uid === contest.uid)) continue;
+        prefetched.unshift({ contest, me: NO_ME });
+      }
     }
 
     return {
