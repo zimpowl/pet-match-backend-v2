@@ -220,6 +220,13 @@ export interface VoteSessionResponse {
   votesLimit: number;
 }
 
+/** Ce que porte un numéro : jusqu'à un concours, deux animaux et un juré. */
+export interface SearchResponse {
+  contests: ContestCardWire[];
+  pets: PetWire[];
+  judges: JudgeWire[];
+}
+
 export interface JudgeProfileResponse {
   dailyVotes: DailyVotesWire;
   judge: JudgeWire;
