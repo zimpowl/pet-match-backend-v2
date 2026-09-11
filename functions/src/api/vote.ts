@@ -178,7 +178,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         const created: ContestJudgeDoc = {
           userUid,
           judgeNumber,
-          userName: user.name,
+          userName: user.nickname ?? user.name,
           userAvatarUrl: user.avatarUrl,
           registrationIndex,
           // Le juré à ce concours-ci (D90) : il se compte dès son premier

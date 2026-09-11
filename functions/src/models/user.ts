@@ -9,7 +9,14 @@ export interface StatsDoc {
 }
 
 export interface UserDoc {
+  /**
+   * Le nom du compte social. On le garde — c'est lui qui a signé les concours
+   * du legacy — mais on ne l'affiche plus : sur iOS il vaut « Anonyme » pour
+   * qui a masqué son identité Apple, et un classement d'Anonymes ne dit rien.
+   */
   name: string;
+  /** Le nom qui signe les votes, choisi par le joueur. Affiché partout. */
+  nickname: string | null;
   avatarUrl: string | null;
   description: string | null;
   countryCode: string | null;

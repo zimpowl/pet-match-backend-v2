@@ -600,6 +600,9 @@ async function main(): Promise<void> {
 
     const patch: Partial<UserDoc> & FirebaseFirestore.DocumentData = {
       name: user.name ?? "",
+      // Personne n'a encore choisi de pseudo : l'app le demandera au premier
+      // lancement, et les concours déjà joués gardent le nom qui les a signés.
+      nickname: null,
       avatarUrl: user.avatarUrl ?? null,
       description: user.description ?? null,
       countryCode: null,

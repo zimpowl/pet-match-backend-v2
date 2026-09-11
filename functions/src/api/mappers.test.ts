@@ -381,6 +381,7 @@ test("un animal sans date de naissance renvoie null, pas zéro", () => {
 test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
   const user: UserDoc = {
     name: "Zimpo",
+    nickname: null,
     avatarUrl: null,
     description: null,
     countryCode: "FR",

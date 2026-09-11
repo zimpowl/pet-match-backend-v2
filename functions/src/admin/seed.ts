@@ -113,6 +113,7 @@ function buildUser(
 ): UserDoc {
   return {
     name,
+    nickname: name,
     avatarUrl,
     description: null,
     countryCode: "FR",

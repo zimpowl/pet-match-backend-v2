@@ -24,7 +24,12 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
 
     if (snap.exists) {
       const user = snap.data() as UserDoc;
-      return { uid: userUid, avatarUrl: user.avatarUrl ?? null, fcmToken: user.fcmToken ?? null };
+      return {
+        uid: userUid,
+        avatarUrl: user.avatarUrl ?? null,
+        fcmToken: user.fcmToken ?? null,
+        needsProfile: needsProfile(user),
+      };
     }
 
     // Un joueur sans animal a un profil de juré parfaitement normal (§4.8) :
@@ -32,6 +37,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     // arriveront de l'écran d'accueil du profil.
     const created: UserDoc = {
       name: "",
+      nickname: null,
       avatarUrl: null,
       description: null,
       countryCode: null,
@@ -47,6 +53,16 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     };
     await ref.set(created);
 
-    return { uid: userUid, avatarUrl: null, fcmToken: null };
+    return { uid: userUid, avatarUrl: null, fcmToken: null, needsProfile: true };
   }),
 );
+
+/**
+ * Le profil n'est pas prêt à jouer. Deux manques, une seule porte : sans pseudo
+ * le classement s'écrit en « Anonyme », et sans avatar la slab n'a pas de
+ * visage. La règle vit ici et nulle part ailleurs — l'app la lit, elle ne la
+ * recalcule pas.
+ */
+function needsProfile(user: UserDoc): boolean {
+  return !user.nickname?.trim() || !user.avatarUrl;
+}

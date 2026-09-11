@@ -154,15 +154,17 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
     const source = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, string | null> = {};
 
-    for (const field of ["name", "countryCode", "avatarUrl", "description"] as const) {
+    for (const field of ["nickname", "countryCode", "avatarUrl", "description"] as const) {
       const raw = source[field];
       if (raw === undefined) continue;
       if (raw !== null && typeof raw !== "string") {
         throw badRequest(`${field} doit être une chaîne ou null`);
       }
       const value = typeof raw === "string" ? raw.trim() : "";
-      // Le nom ne peut pas être effacé ; les autres champs, si.
-      if (field === "name" && value.length === 0) throw badRequest("le nom ne peut pas être vide");
+      // Le pseudo ne peut pas être effacé ; les autres champs, si.
+      if (field === "nickname" && value.length === 0) {
+        throw badRequest("le pseudo ne peut pas être vide");
+      }
       patch[field] = value.length > 0 ? value : null;
     }
 

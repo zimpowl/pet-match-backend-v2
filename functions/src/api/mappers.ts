@@ -228,7 +228,7 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
   return {
     userUid,
     number: user.judgeNumber ?? 0,
-    name: user.name,
+    name: user.nickname ?? user.name,
     avatarUrl: user.avatarUrl,
     judgeSince: toMillisOrZero(user.judgeSince ?? user.createdAt),
     countryCode: user.countryCode,
