@@ -152,7 +152,7 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
     const body = req.body as unknown;
     const userUid = callerUid(query, body);
     const source = (body ?? {}) as Record<string, unknown>;
-    const patch: Record<string, string | null> = {};
+    const patch: Record<string, string | boolean | null> = {};
 
     for (const field of ["nickname", "countryCode", "avatarUrl", "description"] as const) {
       const raw = source[field];
@@ -166,6 +166,22 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
         throw badRequest("le pseudo ne peut pas être vide");
       }
       patch[field] = value.length > 0 ? value : null;
+    }
+
+    const toggles = source.notifications;
+    if (toggles !== undefined) {
+      if (toggles === null || typeof toggles !== "object") {
+        throw badRequest("notifications doit être un objet");
+      }
+      const source2 = toggles as Record<string, unknown>;
+      for (const key of ["results", "reminders"] as const) {
+        const raw = source2[key];
+        if (raw !== undefined && typeof raw !== "boolean") {
+          throw badRequest(`notifications.${key} doit être un booléen`);
+        }
+      }
+      patch["notifications.results"] = source2.results !== false;
+      patch["notifications.reminders"] = source2.reminders !== false;
     }
 
     if (Object.keys(patch).length === 0) throw badRequest("aucun champ à mettre à jour");

@@ -14,6 +14,8 @@ export interface Recipient {
   readonly userUid: string;
   readonly fcmToken: string | null;
   readonly locale: string | null;
+  readonly results: boolean;
+  readonly reminders: boolean;
 }
 
 export async function loadRecipients(
@@ -30,6 +32,8 @@ export async function loadRecipients(
       userUid: snap.id,
       fcmToken: user?.fcmToken ?? null,
       locale: user?.locale ?? null,
+      results: user?.notifications?.results ?? true,
+      reminders: user?.notifications?.reminders ?? true,
     });
   }
   return result;
@@ -49,12 +53,23 @@ export interface DeliveryReport {
 }
 
 /**
+ * Ce que le joueur a demandé à recevoir. Un refus n'est pas un échec : il ne
+ * compte ni dans `failed` ni dans `withoutToken`, il ne part simplement pas.
+ */
+function wanted(delivery: Delivery): boolean {
+  return delivery.data.kind === "REMINDER" ?
+    delivery.recipient.reminders :
+    delivery.recipient.results;
+}
+
+/**
  * Un jeton refusé par FCM ne le sera jamais plus : on l'efface au passage,
  * sinon on repaye l'échec à chaque cycle et pour toujours.
  */
 export async function deliver(deliveries: readonly Delivery[]): Promise<DeliveryReport> {
   const report: DeliveryReport = { sent: 0, failed: 0, withoutToken: 0, tokensCleared: 0 };
   const sendable = deliveries.filter((delivery) => {
+    if (!wanted(delivery)) return false;
     if (delivery.recipient.fcmToken) return true;
     report.withoutToken++;
     return false;

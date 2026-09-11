@@ -615,6 +615,8 @@ async function main(): Promise<void> {
       isVerified: false,
       // La langue arrivera de l'app ; sans elle, le français.
       locale: null,
+      // Rien n'a été coupé : l'absence vaut oui (§ notify).
+      notifications: null,
       grade: { level: computeGradeLevel(stats, false) },
       judgeNumber: judgedAt === undefined ? null : judgeNumbers.get(userUid) ?? null,
       judgeSince: judgedAt === undefined ? null : Timestamp.fromMillis(judgedAt),

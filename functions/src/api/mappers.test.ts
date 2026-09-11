@@ -382,6 +382,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
   const user: UserDoc = {
     name: "Zimpo",
     nickname: null,
+    notifications: null,
     avatarUrl: null,
     description: null,
     countryCode: "FR",

@@ -114,6 +114,7 @@ function buildUser(
   return {
     name,
     nickname: name,
+    notifications: null,
     avatarUrl,
     description: null,
     countryCode: "FR",

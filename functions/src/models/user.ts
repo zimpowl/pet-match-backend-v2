@@ -35,6 +35,13 @@ export interface UserDoc {
    * tombait. Relevé par la clôture, jamais baissé.
    */
   grade: { level: number };
+  /**
+   * Ce que le joueur accepte de recevoir. Absent vaut **oui** : personne n'a
+   * rien coupé, et un défaut à `false` rendrait muet tout le parc migré.
+   * Deux interrupteurs seulement, parce qu'il n'y a que deux canaux (§ notify) :
+   * le résultat du soir, et le rappel de l'après-midi.
+   */
+  notifications: { results: boolean; reminders: boolean } | null;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

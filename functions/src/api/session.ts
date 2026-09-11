@@ -29,6 +29,10 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         avatarUrl: user.avatarUrl ?? null,
         fcmToken: user.fcmToken ?? null,
         needsProfile: needsProfile(user),
+        notifications: {
+          results: user.notifications?.results ?? true,
+          reminders: user.notifications?.reminders ?? true,
+        },
       };
     }
 
@@ -46,6 +50,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       isVerified: false,
       locale: null,
       grade: { level: 0 },
+      notifications: null,
       judgeNumber: null,
       judgeSince: null,
       stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
@@ -53,7 +58,13 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     };
     await ref.set(created);
 
-    return { uid: userUid, avatarUrl: null, fcmToken: null, needsProfile: true };
+    return {
+      uid: userUid,
+      avatarUrl: null,
+      fcmToken: null,
+      needsProfile: true,
+      notifications: { results: true, reminders: true },
+    };
   }),
 );
 
