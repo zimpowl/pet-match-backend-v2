@@ -14,7 +14,11 @@ import { callerUid } from "../http/identity";
  */
 export const deleteAccountHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
-    const userUid = callerUid(req.query as Query, req.body as unknown);
+    const userUid = await callerUid(
+      req.query as Query,
+      req.body as unknown,
+      req.headers.authorization,
+    );
     const ref = db.collection(USERS).doc(userUid);
     if (!(await ref.get()).exists) throw notFound(`utilisateur ${userUid} introuvable`);
 
@@ -38,7 +42,7 @@ export const deletePetHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const petUid = requiredField(body, "petUid");
 
     const ref = db.collection(PETS).doc(petUid);

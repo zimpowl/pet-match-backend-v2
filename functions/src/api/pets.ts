@@ -31,7 +31,7 @@ export const createPetHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<PetWire> => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
 
     const parsed = readPetInput(body);
     if (!parsed.ok) throw petError(parsed.rejection);
@@ -81,7 +81,7 @@ export const updatePetHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<PetWire> => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const petUid = requiredField(body, "petUid");
 
     const parsed = readPetInput((body as Record<string, unknown>).pet);

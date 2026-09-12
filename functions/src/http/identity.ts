@@ -1,31 +1,55 @@
-import { badRequest } from "./respond";
+import { getAuth } from "firebase-admin/auth";
+import { badRequest, forbidden } from "./respond";
 
 /**
- * Résout l'identité de l'appelant à partir de la query ou du body.
+ * Qui appelle. Le jeton Firebase fait foi — il est signé, l'app ne peut pas le
+ * fabriquer, et il porte l'uid : tant qu'on lisait `userUid` dans la query,
+ * n'importe qui pouvait écrire dans n'importe quel profil.
  *
- * Point central d'extraction de userUid — permet de passer à un jeton
- * Firebase Auth (L7) en ne modifiant qu'un fichier.
- *
- * @param query Paramètres de query de la requête HTTP
- * @param body Corps parsé de la requête POST (any ou Record)
- * @returns userUid de l'appelant
- * @throws HttpError 400 si userUid est absent ou vide
+ * Il reste une porte, et une seule : **sur un projet de debug**, un appel sans
+ * jeton retombe sur l'uid de la query. C'est ce qui fait vivre le faux compte
+ * du `FakeAuthentificationImpl`, qui n'a pas de session Firebase à présenter.
+ * En prod, pas de jeton, pas d'appel.
  */
-export function callerUid(
+export async function callerUid(
   query: Record<string, unknown>,
   body: unknown,
-): string {
-  // Cherche d'abord dans la query
-  if (query.userUid && typeof query.userUid === "string" && query.userUid.trim()) {
+  header?: string,
+): Promise<string> {
+  const token = bearer(header);
+  if (token) {
+    try {
+      return (await getAuth().verifyIdToken(token)).uid;
+    } catch {
+      throw forbidden("jeton d'authentification invalide");
+    }
+  }
+
+  if (!isDebugProject()) throw forbidden("jeton d'authentification manquant");
+
+  return declared(query, body);
+}
+
+function bearer(header: string | undefined): string | null {
+  if (!header) return null;
+  const [scheme, value] = header.split(" ");
+  return scheme?.toLowerCase() === "bearer" && value ? value : null;
+}
+
+function isDebugProject(): boolean {
+  const project = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
+  return Boolean(process.env.FIRESTORE_EMULATOR_HOST) || /debug/i.test(project);
+}
+
+/** L'uid tel que l'appelant le déclare — cru sur parole, donc debug seulement. */
+function declared(query: Record<string, unknown>, body: unknown): string {
+  if (typeof query.userUid === "string" && query.userUid.trim()) {
     return query.userUid.trim();
   }
 
-  // Puis dans le body
   if (body && typeof body === "object" && "userUid" in body) {
     const bodyUid = (body as Record<string, unknown>).userUid;
-    if (typeof bodyUid === "string" && bodyUid.trim()) {
-      return bodyUid.trim();
-    }
+    if (typeof bodyUid === "string" && bodyUid.trim()) return bodyUid.trim();
   }
 
   throw badRequest("userUid manquant");

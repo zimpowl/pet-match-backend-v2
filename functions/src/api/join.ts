@@ -35,7 +35,7 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<JoinContestResponse> => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const contestUid = requiredField(body, "contestUid");
     const petUid = requiredField(body, "petUid");
     // La photo choisie pour **ce** concours. Elle est optionnelle : sans elle on

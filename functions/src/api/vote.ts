@@ -54,7 +54,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<VoteSubmissionResponse> => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const contestUid = requiredField(body, "contestUid");
     const aPetUid = requiredField(body, "aPetUid");
     const bPetUid = requiredField(body, "bPetUid");

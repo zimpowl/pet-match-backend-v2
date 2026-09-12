@@ -27,7 +27,7 @@ export const registerDeviceHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const token = requiredField(body, "token");
 
     const raw = (body as Record<string, unknown>).locale;

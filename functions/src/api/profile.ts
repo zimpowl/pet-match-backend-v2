@@ -157,7 +157,7 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<JudgeWire> => {
     const query = req.query as Query;
     const body = req.body as unknown;
-    const userUid = callerUid(query, body);
+    const userUid = await callerUid(query, body, req.headers.authorization);
     const source = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, string | boolean | null> = {};
 

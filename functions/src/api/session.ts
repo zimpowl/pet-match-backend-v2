@@ -18,7 +18,11 @@ import { callerUid } from "../http/identity";
  */
 export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
-    const userUid = callerUid(req.query as Query, req.body as unknown);
+    const userUid = await callerUid(
+      req.query as Query,
+      req.body as unknown,
+      req.headers.authorization,
+    );
     const ref = db.collection(USERS).doc(userUid);
     const snap = await ref.get();
 
