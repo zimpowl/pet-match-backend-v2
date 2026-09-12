@@ -26,6 +26,7 @@ import {
   LegacyVote,
 } from "./legacy";
 import { computeGradeLevel } from "../core/grade";
+import { atContestHour } from "../core/time";
 import {
   assignNumbers,
   mapSex,
@@ -377,8 +378,16 @@ async function main(): Promise<void> {
     // 40, et sa slab doit le dire. `maxVotesPerJudge` est stocké par concours
     // précisément pour ça : une slab sait sous quelles règles elle a été jouée.
     const cap = LEGACY_MAX_VOTES_PER_JUDGE;
-    const startAt = millis(challenge.doc.startAt, 0);
-    const endAt = millis(challenge.doc.endAt, startAt);
+    const rawStart = millis(challenge.doc.startAt, 0);
+    const rawEnd = millis(challenge.doc.endAt, rawStart);
+
+    // Un concours joué garde ses dates : c'est son histoire. Ceux qui courent
+    // encore se calent sur 18 h de Paris — l'heure de bascule d'un concours est
+    // son `startAt`, et le cycle du soir tourne à 18 h (§4.0). Sans ce calage,
+    // chaque concours suivant héritait de la dérive.
+    const aligned = status !== "CLOSED";
+    const startAt = aligned ? atContestHour(rawStart) : rawStart;
+    const endAt = aligned ? atContestHour(rawEnd) : rawEnd;
 
     const contest: ContestDoc = {
       theme: challenge.doc.theme ?? "",

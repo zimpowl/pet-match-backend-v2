@@ -16,7 +16,8 @@
     "backup": "tsc && node lib/admin/backup.js",
     "purge": "tsc && node lib/admin/purge.js",
     "tokens": "tsc && node lib/admin/tokens.js",
-    "nationality": "tsc && node lib/admin/nationality.js"
+    "nationality": "tsc && node lib/admin/nationality.js",
+    "schedule": "tsc && node lib/admin/schedule.js"
   },
   "engines": {
     "node": "24"

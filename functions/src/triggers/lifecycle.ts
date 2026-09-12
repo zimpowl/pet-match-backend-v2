@@ -22,7 +22,7 @@ import { computeMaxVotesPerJudge, computeVotesPerDay } from "../core/cap";
 import { DEFAULT_K_FACTOR } from "../core/elo";
 import { compareJudges, compareParticipants, rank as ranked } from "../core/ranking";
 import { CountedVote, judgeResults, medalFromRank } from "../core/results";
-import { toMillisOrZero } from "../core/time";
+import { atContestHour, toMillisOrZero } from "../core/time";
 import { StatsDoc } from "../models/user";
 import { computeGradeLevel, raiseGradeLevel } from "../core/grade";
 import {
@@ -598,7 +598,9 @@ async function openNextDraft(
     const [theme, ...rest] = queue;
     const number = ((sequencesSnap.data()?.contests as number | undefined) ?? 0) + 1;
 
-    const startAt = toMillisOrZero(active.endAt);
+    // 18 h de Paris, toujours (§4.0). Le suivant hérite de la fin du précédent,
+    // donc une heure de travers se propagerait de concours en concours.
+    const startAt = atContestHour(toMillisOrZero(active.endAt));
     const ref = db.collection(CONTESTS).doc();
     const draft: ContestDoc = {
       theme: theme ?? `Concours n° ${number}`,
@@ -606,7 +608,7 @@ async function openNextDraft(
       status: "DRAFT",
       createdAt: Timestamp.fromMillis(nowMillis),
       startAt: Timestamp.fromMillis(startAt),
-      endAt: Timestamp.fromMillis(startAt + NEXT_CONTEST_LEAD),
+      endAt: Timestamp.fromMillis(atContestHour(startAt + NEXT_CONTEST_LEAD)),
       // Figés à l'activation, pas ici : on ne connaît pas encore l'effectif.
       maxVotesPerJudge: 0,
       maxVotesPerDay: 0,
