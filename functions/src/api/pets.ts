@@ -102,7 +102,16 @@ export const updatePetHttp = onRequest({ cors: true }, (req, res) =>
         throw conflict("l'espèce d'un animal ne change pas");
       }
 
-      await assertMicrochipFree(t, input.microchipId, petUid);
+      // Un numéro de puce se pose une fois (D130). Le changer permettrait de
+      // faire pointer un animal confirmé sur la puce d'un autre — c'est
+      // exactement la fraude que l'unicité est censée fermer. Tant qu'il est
+      // vide on l'accepte ; ensuite il est à nous, pas à l'app.
+      const microchipId = current.microchipId ?? input.microchipId;
+      if (current.microchipId && input.microchipId && input.microchipId !== current.microchipId) {
+        throw conflict("le numéro d'identification ne se modifie pas");
+      }
+
+      await assertMicrochipFree(t, microchipId, petUid);
 
       const patch = {
         name: input.name,
@@ -111,7 +120,7 @@ export const updatePetHttp = onRequest({ cors: true }, (req, res) =>
         breed: input.breed,
         birthDate: input.birthDate === null ? null : Timestamp.fromMillis(input.birthDate),
         countryCode: input.countryCode,
-        microchipId: input.microchipId,
+        microchipId,
       };
       t.update(petRef, patch);
       return { ...current, ...patch } as PetDoc;

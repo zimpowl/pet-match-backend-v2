@@ -1,7 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { Timestamp } from "firebase-admin/firestore";
 import { PETS, REPORTS, USERS, db } from "../firebase";
-import { ReportDoc, ReportReason, ReportTarget } from "../models/report";
+import { ReportDoc, ReportTarget } from "../models/report";
 import {
   JsonResponse,
   Query,
@@ -9,29 +9,17 @@ import {
   conflict,
   forbidden,
   notFound,
-  optionalField,
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
-
-const REASONS: readonly ReportReason[] = [
-  "WELFARE",
-  "NOT_YOURS",
-  "OFF_THEME",
-  "SHOCKING",
-  "IDENTITY",
-  "OTHER",
-];
-
-const DETAILS_MAX = 1000;
 
 /**
  * Signaler une publication (D129). La charte le promet à chaque page : sans cet
  * appel, elle promettait une porte qui n'existait pas.
  *
- * Le signalement **n'agit pas** : il ouvre une ligne dans une file, et c'est une
- * personne qui décide. Retirer automatiquement sur signalement ferait du bouton
- * une arme — il suffirait de deux comptes pour effacer le concurrent du soir.
+ * Le signalement **n'agit sur rien** : il ouvre une ligne dans une file, et
+ * c'est une personne qui décide. Retirer automatiquement ferait du bouton une
+ * arme — il suffirait de deux comptes pour effacer le concurrent du soir.
  */
 export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
@@ -41,11 +29,8 @@ export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
 
     const target = readTarget(body);
     const targetUid = readTargetUid(body);
-    const reason = readReason(body);
-    const details = optionalField(body, "details")?.slice(0, DETAILS_MAX) ?? null;
-    const contestUid = optionalField(body, "contestUid");
 
-    await assertExists(target, targetUid, reporterUid);
+    await assertReportable(target, targetUid, reporterUid);
 
     // Re-signaler la même chose n'ajoute rien à la file : la première ligne
     // attend déjà qu'on la lise.
@@ -63,9 +48,6 @@ export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
       reporterUid,
       target,
       targetUid,
-      contestUid,
-      reason,
-      details,
       status: "OPEN",
       createdAt: Timestamp.now(),
       reviewedAt: null,
@@ -77,7 +59,7 @@ export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
 );
 
 /** On ne se signale pas soi-même, et on ne signale pas ce qui n'existe pas. */
-async function assertExists(
+async function assertReportable(
   target: ReportTarget,
   targetUid: string,
   reporterUid: string,
@@ -104,11 +86,4 @@ function readTargetUid(body: unknown): string {
   const raw = (body as Record<string, unknown>)?.targetUid;
   if (typeof raw === "string" && raw.trim()) return raw.trim();
   throw badRequest("targetUid manquant");
-}
-
-function readReason(body: unknown): ReportReason {
-  const raw = (body as Record<string, unknown>)?.reason;
-  const found = REASONS.find((it) => it === raw);
-  if (!found) throw badRequest("motif de signalement inconnu");
-  return found;
 }

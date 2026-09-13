@@ -18,7 +18,8 @@
     "tokens": "tsc && node lib/admin/tokens.js",
     "nationality": "tsc && node lib/admin/nationality.js",
     "schedule": "tsc && node lib/admin/schedule.js",
-    "grades": "tsc && node lib/admin/grades.js"
+    "grades": "tsc && node lib/admin/grades.js",
+    "reports": "tsc && node lib/admin/reports.js"
   },
   "engines": {
     "node": "24"
