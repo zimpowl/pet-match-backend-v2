@@ -222,6 +222,23 @@ export interface VoteSessionResponse {
   votesLimit: number;
 }
 
+/** Le premier d'un concours clos, et de quoi en dessiner la slab. */
+export interface WinnerWire {
+  contestUid: string;
+  number: number;
+  theme: string;
+  startAt: number;
+  endAt: number;
+  counts: ContestCountsWire;
+  petUid: string;
+  petName: string;
+  photoUrl: string | null;
+}
+
+export interface WinnersResponse {
+  winners: WinnerWire[];
+}
+
 /** Ce que porte un numéro : jusqu'à un concours, deux animaux et un juré. */
 export interface SearchResponse {
   contests: ContestCardWire[];
