@@ -9,6 +9,7 @@ export * from "./api/profile";
 export * from "./api/search";
 export * from "./api/close";
 export * from "./api/podiums";
+export * from "./api/verify";
 
 // L3 — écritures.
 export * from "./api/join";
@@ -16,6 +17,7 @@ export * from "./api/vote";
 export * from "./api/pets";
 export * from "./api/device";
 export * from "./api/session";
+export * from "./api/rules";
 
 // L4 — cycle de vie : 18 h est la seule horloge du jeu.
 export * from "./triggers/lifecycle";

@@ -49,6 +49,13 @@ export interface UserDoc {
    * vivante** : pseudo, avatar et jeton de notification.
    */
   deletedAt: firestore.Timestamp | null;
+  /**
+   * Signature du règlement (D125). Null tant qu'il n'a pas été signé, et c'est
+   * une **porte** : on ne se nomme pas et on ne vote pas avant. La date est
+   * gardée parce qu'un règlement se signe à une version et à un instant — c'est
+   * elle qu'on réaffiche, et c'est elle qui fera foi le jour où le texte change.
+   */
+  rulesSignedAt: firestore.Timestamp | null;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

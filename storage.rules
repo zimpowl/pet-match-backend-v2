@@ -1,0 +1,27 @@
+rules_version = '2';
+
+/**
+ * Deux natures de fichier, deux régimes.
+ *
+ * `images/` porte les photos — avatars et concours. Elles sont publiques par
+ * destination : une slab s'affiche chez les autres.
+ *
+ * `documents/` porte les pièces d'identité déposées pour la confirmation
+ * (D126). Personne ne les lit depuis le client, **pas même leur propriétaire** :
+ * seule la revue humaine y accède, par le SDK Admin, qui ne passe pas par ces
+ * règles. Écrire est permis à qui est chez soi, lire est refusé à tous.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /images/{userUid}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userUid;
+    }
+
+    match /documents/{userUid}/{file} {
+      allow read: if false;
+      allow write: if request.auth != null && request.auth.uid == userUid
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

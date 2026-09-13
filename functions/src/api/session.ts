@@ -32,6 +32,8 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         uid: userUid,
         avatarUrl: user.avatarUrl ?? null,
         fcmToken: user.fcmToken ?? null,
+        needsRules: !user.rulesSignedAt,
+        rulesSignedAt: user.rulesSignedAt?.toMillis() ?? null,
         needsProfile: needsProfile(user),
         notifications: {
           results: user.notifications?.results ?? true,
@@ -56,6 +58,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       locale: null,
       grade: { level: 0 },
       notifications: null,
+      rulesSignedAt: null,
       judgeNumber: null,
       judgeSince: null,
       stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
@@ -67,6 +70,8 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       uid: userUid,
       avatarUrl: null,
       fcmToken: null,
+      needsRules: true,
+      rulesSignedAt: null,
       needsProfile: true,
       notifications: { results: true, reminders: true },
     };

@@ -393,6 +393,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
     isVerified: false,
     locale: null,
     grade: { level: 0 },
+    rulesSignedAt: null,
     judgeNumber: null,
     judgeSince: null,
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },

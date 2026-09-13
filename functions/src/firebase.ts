@@ -13,3 +13,6 @@ export const JUDGES = "judges";
 export const VOTES = "votes";
 export const COUNTERS = "counters";
 export const SEQUENCES = "sequences";
+
+/** Les demandes de confirmation d'identité (D126), juré comme animal. */
+export const VERIFICATIONS = "verifications";
