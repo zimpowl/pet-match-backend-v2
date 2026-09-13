@@ -15,6 +15,13 @@ export interface PetDoc {
   createdAt: firestore.Timestamp;
   microchipId: string | null;
   verifiedAt: firestore.Timestamp | null;
+  /**
+   * Retiré par la modération (D134). La photo **reste** — c'est la preuve du
+   * signalement — mais plus rien ne la sert : l'app affiche « photo
+   * supprimée » à sa place. Null tant que personne n'est intervenu.
+   */
+  hiddenAt: firestore.Timestamp | null;
+
   /** Retiré de l'étagère et de la recherche ; ses participations demeurent. */
   deletedAt: firestore.Timestamp | null;
   /** Grade de l'animal (§4.8), progression séparée de celle du juré. */

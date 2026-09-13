@@ -41,6 +41,12 @@ export interface ContestParticipantDoc {
    */
   sex: Sex | null;
   photoUrl: string;
+  /**
+   * Retiré par la modération (D134). La photo **reste** — c'est la preuve du
+   * signalement — mais plus rien ne la sert : l'app affiche « photo
+   * supprimée » à sa place. Null tant que personne n'est intervenu.
+   */
+  hiddenAt: firestore.Timestamp | null;
   registrationIndex: number;
   /**
    * L'état de l'animal **à ce concours-ci**, ce concours compris (D90). Posé à
@@ -81,6 +87,8 @@ export interface ContestJudgeDoc {
   judgeNumber: number;
   userName: string;
   userAvatarUrl: string | null;
+  /** Avatar retiré par la modération (D134) : conservé, plus servi. */
+  hiddenAt: firestore.Timestamp | null;
   /** Rang du premier tour, comme pour les participants (D87). */
   registrationIndex: number;
   /** Le juré à ce concours-ci, ce concours compris (D90). Cf. le participant. */

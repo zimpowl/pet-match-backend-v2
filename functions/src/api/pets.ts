@@ -60,6 +60,7 @@ export const createPetHttp = onRequest({ cors: true }, (req, res) =>
         microchipId: input.microchipId,
         // Champs serveur : l'appelant ne les pose jamais.
         verifiedAt: null,
+        hiddenAt: null,
         deletedAt: null,
         grade: { level: 0 },
         stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },

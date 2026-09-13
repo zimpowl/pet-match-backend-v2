@@ -195,6 +195,11 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
 
     if (Object.keys(patch).length === 0) throw badRequest("aucun champ à mettre à jour");
 
+    // Reprendre un pseudo, c'est revenir. Sans ça, un compte fermé puis
+    // rouvert continuait de s'annoncer « Compte supprimé » aux autres pour
+    // toujours — « revenir veut dire recommencer » (D117), pas rester mort.
+    if (patch.nickname) patch.deletedAt = null;
+
     const userRef = db.collection(USERS).doc(userUid);
     const updated = await db.runTransaction(async (t) => {
       const snap = await t.get(userRef);

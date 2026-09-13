@@ -62,6 +62,13 @@ export interface UserDoc {
    * purgée, qu'on garde parce qu'elle a eu lieu.
    */
   suspendedUntil: firestore.Timestamp | null;
+  /**
+   * Retiré par la modération (D134). La photo **reste** — c'est la preuve du
+   * signalement — mais plus rien ne la sert : l'app affiche « photo
+   * supprimée » à sa place. Null tant que personne n'est intervenu.
+   */
+  hiddenAt: firestore.Timestamp | null;
+
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

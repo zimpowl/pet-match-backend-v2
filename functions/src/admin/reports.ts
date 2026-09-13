@@ -4,19 +4,27 @@ import { ReportDoc } from "../models/report";
 import { CONTEST_ZONE } from "../core/time";
 
 /**
- * La file des signalements (D129), et les trois gestes qui la vident.
+ * La file des signalements (D129), et les gestes qui la vident (D134).
  *
- *   npm run reports -- --project=X                            la file
- *   npm run reports -- --project=X --id=<id> --close --commit       vu, rien à faire
- *   npm run reports -- --project=X --id=<id> --takedown --commit    l'image part partout
- *   npm run reports -- --project=X --id=<id> --suspend=14 --commit  et le compte se tait
+ *   npm run reports -- --project=X                             la file
+ *   npm run reports -- --project=X --id=<id> --close --commit        vu, rien à faire
+ *   npm run reports -- --project=X --id=<id> --takedown --commit     tout, d'un coup
+ *   npm run reports -- --project=X --id=<id> --hide --commit         l'image se tait
+ *   npm run reports -- --project=X --id=<id> --withdraw --commit     hors des concours ouverts
+ *   npm run reports -- --project=X --id=<id> --suspend=14 --commit   et le compte aussi
  *
- * `--takedown` retire **l'image**, jamais le résultat : la participation reste,
- * le rang reste, les votes restent. Effacer une participation referait le
- * classement de tous les autres, qui n'ont rien demandé (D117).
+ * `--hide` **ne supprime rien** : la photo reste en base, c'est la preuve du
+ * signalement. Elle n'est simplement plus servie, et l'app affiche « photo
+ * supprimée » à sa place — y compris sur les concours clos, qu'on ne réécrit
+ * jamais.
  *
- * `--suspend` et `--takedown` se cumulent, et ferment le signalement d'office :
- * on ne traite pas deux fois la même ligne.
+ * `--withdraw` ne touche **que les concours non clos** : l'inscription y est
+ * retirée, et le deuxième passe premier au prochain classement du soir. Un
+ * concours clos garde ses participations : les en sortir referait le palmarès
+ * de gens qui n'ont rien demandé (D117).
+ *
+ * `--takedown` fait les deux. Tous ferment le signalement, et `--dry-run` est
+ * le défaut.
  */
 
 const DAY_MILLIS = 24 * 60 * 60 * 1000;
@@ -26,7 +34,8 @@ interface Options {
   readonly all: boolean;
   readonly id: string | null;
   readonly close: boolean;
-  readonly takedown: boolean;
+  readonly hide: boolean;
+  readonly withdraw: boolean;
   readonly suspendDays: number | null;
   readonly commit: boolean;
 }
@@ -48,7 +57,8 @@ function parseOptions(argv: readonly string[]): Options {
     all: argv.includes("--all"),
     id: flag("id"),
     close: argv.includes("--close"),
-    takedown: argv.includes("--takedown"),
+    hide: argv.includes("--hide") || argv.includes("--takedown"),
+    withdraw: argv.includes("--withdraw") || argv.includes("--takedown"),
     suspendDays: days === null ? null : Number(days),
     commit: argv.includes("--commit"),
   };
@@ -103,46 +113,78 @@ async function list(db: Db, options: Options): Promise<void> {
 }
 
 /**
- * L'image disparaît partout où elle a été recopiée : sur la fiche, sur chaque
- * participation, et sur la slab des jurés qui l'ont vue gagner.
+ * L'image se tait partout où elle a été recopiée — la fiche, chaque
+ * participation, la place du juré. **Rien n'est effacé** : `hiddenAt` suffit à
+ * ne plus la servir, et la photo reste là où elle est, parce que c'est elle qui
+ * prouve le signalement.
  */
-async function takedown(db: Db, report: ReportDoc, commit: boolean): Promise<number> {
+async function hide(db: Db, report: ReportDoc, commit: boolean): Promise<number> {
   const writer = commit ? db.bulkWriter() : null;
+  const hiddenAt = Timestamp.now();
   let touched = 0;
 
-  const erase = (ref: FirebaseFirestore.DocumentReference, patch: Record<string, unknown>) => {
+  const mute = (ref: FirebaseFirestore.DocumentReference) => {
     touched++;
-    void writer?.update(ref, patch);
+    void writer?.update(ref, { hiddenAt });
   };
 
   if (report.target === "PET") {
-    erase(db.collection("pets").doc(report.targetUid), { photoUrl: null });
+    mute(db.collection("pets").doc(report.targetUid));
 
     const entries = await db
       .collectionGroup("participants")
       .where("petId", "==", report.targetUid)
       .orderBy("createdAt", "desc")
       .get();
-    for (const doc of entries.docs) erase(doc.ref, { photoUrl: null });
-
-    const witnesses = await db
-      .collectionGroup("judges")
-      .where("winner.petId", "==", report.targetUid)
-      .get();
-    for (const doc of witnesses.docs) erase(doc.ref, { "winner.photoUrl": null });
+    for (const doc of entries.docs) mute(doc.ref);
   } else {
-    erase(db.collection("users").doc(report.targetUid), { avatarUrl: null });
+    mute(db.collection("users").doc(report.targetUid));
 
     const seats = await db
       .collectionGroup("judges")
       .where("userUid", "==", report.targetUid)
       .orderBy("joinedAt", "desc")
       .get();
-    for (const doc of seats.docs) erase(doc.ref, { userAvatarUrl: null });
+    for (const doc of seats.docs) mute(doc.ref);
   }
 
   await writer?.close();
   return touched;
+}
+
+/**
+ * Sortir des concours **encore ouverts**, et de ceux-là seulement. Le compteur
+ * suit, sans quoi le concours annoncerait un participant qu'il n'a plus ; les
+ * rangs, eux, se refont d'eux-mêmes au prochain 18 h.
+ */
+async function withdraw(db: Db, petUid: string, commit: boolean): Promise<string[]> {
+  const entries = await db
+    .collectionGroup("participants")
+    .where("petId", "==", petUid)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  const pulled: string[] = [];
+
+  for (const doc of entries.docs) {
+    const contestRef = doc.ref.parent.parent;
+    if (!contestRef) continue;
+
+    const contest = await contestRef.get();
+    if (contest.get("status") === "CLOSED") continue;
+
+    pulled.push(`${contest.get("theme")} (${contest.get("status")})`);
+    if (!commit) continue;
+
+    await db.runTransaction(async (t) => {
+      const fresh = await t.get(contestRef);
+      const count = (fresh.get("counts")?.participants ?? 1) - 1;
+      t.delete(doc.ref);
+      t.update(contestRef, { "counts.participants": Math.max(0, count) });
+    });
+  }
+
+  return pulled;
 }
 
 async function suspend(db: Db, uid: string, days: number, commit: boolean): Promise<number> {
@@ -162,9 +204,22 @@ async function act(db: Db, options: Options): Promise<void> {
   console.log(`${report.target} ${about.name} — n° ${about.number}`);
   console.log(`image : ${about.photoUrl ?? "(aucune)"}\n`);
 
-  if (options.takedown) {
-    const touched = await takedown(db, report, options.commit);
-    console.log(`image retirée de ${touched} document(s)`);
+  if (options.hide) {
+    const touched = await hide(db, report, options.commit);
+    console.log(`image tue sur ${touched} document(s) — le fichier reste`);
+  }
+
+  if (options.withdraw) {
+    if (report.target !== "PET") {
+      console.log("retrait de concours : sans objet pour un juré");
+    } else {
+      const pulled = await withdraw(db, report.targetUid, options.commit);
+      console.log(
+        pulled.length === 0 ?
+          "aucun concours ouvert à quitter" :
+          `retiré de : ${pulled.join(", ")}`,
+      );
+    }
   }
 
   if (options.suspendDays !== null) {
@@ -194,8 +249,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!options.close && !options.takedown && options.suspendDays === null) {
-    throw new Error("--id demande un geste : --close, --takedown ou --suspend=<jours>");
+  if (!options.close && !options.hide && !options.withdraw && options.suspendDays === null) {
+    throw new Error(
+      "--id demande un geste : --close, --hide, --withdraw, --suspend=<jours> ou --takedown",
+    );
   }
 
   await act(db, options);

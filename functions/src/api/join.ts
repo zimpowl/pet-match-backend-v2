@@ -87,6 +87,7 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         petBreed: pet.breed,
         species: pet.species,
         sex: pet.sex,
+        hiddenAt: null,
         // La photo **de cette inscription**, dénormalisée : c'est elle qui sera
         // imprimée, et elle n'a aucune raison d'être celle du profil de
         // l'animal — un concours par photo, c'est tout l'objet de l'écran

@@ -62,6 +62,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       notifications: null,
       rulesSignedAt: null,
       suspendedUntil: null,
+      hiddenAt: null,
       judgeNumber: null,
       judgeSince: null,
       stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
@@ -76,6 +77,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       needsRules: true,
       rulesSignedAt: null,
       suspendedUntil: null,
+      hiddenAt: null,
       needsProfile: true,
       notifications: { results: true, reminders: true },
     };

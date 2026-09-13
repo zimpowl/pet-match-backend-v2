@@ -48,6 +48,7 @@ function judge(overrides: Partial<ContestJudgeDoc> = {}): ContestJudgeDoc {
     userUid: "zimpo",
     judgeNumber: 12,
     userName: "Zimpo",
+    hiddenAt: null,
     userAvatarUrl: null,
     registrationIndex: 8,
     gradeAtEntry: 2,
@@ -75,6 +76,7 @@ function participant(overrides: Partial<ContestParticipantDoc> = {}): ContestPar
     petBreed: "berger australien",
     species: "DOG",
     sex: "MALE",
+    hiddenAt: null,
     photoUrl: "https://placedog.net/300/300?id=42",
     registrationIndex: 8,
     gradeAtEntry: 3,
@@ -114,6 +116,7 @@ test("la slab close sert l'identité qui a signé, pas le profil vivant (D128)",
   assert.deepEqual(asParticipant.bearer, {
     name: participant().petName,
     photoUrl: participant().photoUrl,
+    photoRemoved: false,
     subtext: participant().petBreed,
   });
 
@@ -121,8 +124,18 @@ test("la slab close sert l'identité qui a signé, pas le profil vivant (D128)",
   assert.deepEqual(asJudge.bearer, {
     name: judge().userName,
     photoUrl: judge().userAvatarUrl,
+    photoRemoved: false,
     subtext: null,
   });
+
+  // Une photo retirée par la modération n'est plus servie, mais elle existe.
+  const hidden = meWire(contest(), {
+    participant: participant({ hiddenAt: stamp(START) }),
+    judge: null,
+  });
+  assert.equal(hidden.bearer?.photoUrl, null);
+  assert.equal(hidden.bearer?.photoRemoved, true);
+  assert.equal(hidden.pet?.photoUrl, null);
 });
 
 test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
@@ -201,6 +214,7 @@ test("participant : le rôle porte l'animal, le rang est le sien", () => {
     petUid: "heureux",
     name: "Heureux",
     photoUrl: "https://placedog.net/300/300?id=42",
+    photoRemoved: false,
   });
   assert.equal(me.votes, null);
 });
@@ -248,6 +262,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     species: "DOG",
     sex: "MALE",
     photoUrl: "https://placedog.net/300/300?id=42",
+    photoRemoved: false,
     elo: 1266.4,
     votesReceived: 40,
     rank: 2,
@@ -387,6 +402,7 @@ test("un animal sans date de naissance renvoie null, pas zéro", () => {
     createdAt: stamp(START),
     microchipId: null,
     verifiedAt: null,
+    hiddenAt: null,
     deletedAt: null,
     grade: { level: 0 },
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
@@ -412,6 +428,7 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
     grade: { level: 0 },
     rulesSignedAt: null,
     suspendedUntil: null,
+    hiddenAt: null,
     judgeNumber: null,
     judgeSince: null,
     stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },

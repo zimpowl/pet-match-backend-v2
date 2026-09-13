@@ -37,6 +37,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
   const { participant, judge } = source;
 
   if (participant) {
+    const hidden = participant.hiddenAt != null;
     return {
       role: "PARTICIPANT",
       rank: participant.rank,
@@ -44,11 +45,13 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       pet: {
         petUid: participant.petId,
         name: participant.petName,
-        photoUrl: participant.photoUrl,
+        photoUrl: hidden ? null : participant.photoUrl,
+        photoRemoved: hidden,
       },
       bearer: {
         name: participant.petName,
-        photoUrl: participant.photoUrl,
+        photoUrl: hidden ? null : participant.photoUrl,
+        photoRemoved: hidden,
         subtext: participant.petBreed,
       },
       votes: judge ? judgeVotes(contest, judge) : null,
@@ -75,7 +78,8 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       pet: null,
       bearer: {
         name: judge.userName,
-        photoUrl: judge.userAvatarUrl,
+        photoUrl: judge.hiddenAt ? null : judge.userAvatarUrl,
+        photoRemoved: judge.hiddenAt != null,
         subtext: null,
       },
       votes: judgeVotes(contest, judge),
@@ -170,7 +174,8 @@ export function participantRow(
     breed: participant.petBreed,
     species: participant.species,
     sex: participant.sex ?? null,
-    photoUrl: participant.photoUrl ?? null,
+    photoUrl: participant.hiddenAt ? null : participant.photoUrl ?? null,
+    photoRemoved: participant.hiddenAt != null,
     elo: status === "CLOSED" ?
       participant.elo :
       participant.eloSnapshot ?? DEFAULT_ELO,
@@ -201,7 +206,7 @@ export function judgeRow(
     userUid: judge.userUid,
     number: judge.judgeNumber,
     name: judge.userName,
-    avatarUrl: judge.userAvatarUrl,
+    avatarUrl: judge.hiddenAt ? null : judge.userAvatarUrl,
     judgeSince: toMillisOrZero(judge.joinedAt),
     votes: contest.status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
     castVotes: judge.votes,
@@ -245,7 +250,8 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
     // gardent le leur, dénormalisé sur le document juré : c'est la trace qui
     // reste, pas l'identité.
     name: user.deletedAt ? CLOSED_ACCOUNT : user.nickname ?? user.name,
-    avatarUrl: user.avatarUrl,
+    avatarUrl: user.hiddenAt ? null : user.avatarUrl,
+    avatarRemoved: user.hiddenAt != null,
     judgeSince: toMillisOrZero(user.judgeSince ?? user.createdAt),
     countryCode: user.countryCode,
     level: user.grade?.level ?? 0,
@@ -256,11 +262,12 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
 export function petProfile(petUid: string, pet: PetDoc, owned = false): PetWire {
   return {
     microchipId: owned ? pet.microchipId ?? null : null,
+    photoRemoved: pet.hiddenAt != null,
     petUid,
     userUid: pet.userUid,
     number: pet.number,
     name: pet.name,
-    photoUrl: pet.photoUrl,
+    photoUrl: pet.hiddenAt ? null : pet.photoUrl,
     species: pet.species,
     breed: pet.breed,
     sex: pet.sex,

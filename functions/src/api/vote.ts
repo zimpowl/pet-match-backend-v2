@@ -180,6 +180,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
         const created: ContestJudgeDoc = {
           userUid,
           judgeNumber,
+          hiddenAt: null,
           userName: user.nickname ?? user.name,
           userAvatarUrl: user.avatarUrl,
           registrationIndex,

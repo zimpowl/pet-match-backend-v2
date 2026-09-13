@@ -33,6 +33,8 @@ export interface ContestMePetWire {
   petUid: string;
   name: string;
   photoUrl: string | null;
+  /** La photo a été retirée par la modération : elle existe, on ne la sert plus. */
+  photoRemoved?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export interface ContestMePetWire {
 export interface ContestBearerWire {
   name: string;
   photoUrl: string | null;
+  photoRemoved?: boolean;
   /** La race de l'animal, figée avec le reste. Null pour un juré. */
   subtext: string | null;
 }
@@ -122,6 +125,7 @@ export interface ContestCardWire {
  * d'aujourd'hui — sinon la slab d'il y a trois mois mentirait.
  */
 export interface ParticipantRowWire {
+  photoRemoved?: boolean;
   petUid: string;
   ownerUid: string;
   number: number;
@@ -168,6 +172,7 @@ export interface StatsWire {
 }
 
 export interface JudgeWire {
+  avatarRemoved?: boolean;
   userUid: string;
   number: number;
   name: string;
@@ -179,6 +184,7 @@ export interface JudgeWire {
 }
 
 export interface PetWire {
+  photoRemoved?: boolean;
   /**
    * Le numéro de puce n'est **jamais public** : il identifie l'animal, et le
    * donner à tout le monde offrirait à n'importe qui de quoi le revendiquer.
