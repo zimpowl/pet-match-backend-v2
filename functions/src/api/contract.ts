@@ -230,8 +230,19 @@ export interface WinnerWire {
   startAt: number;
   endAt: number;
   counts: ContestCountsWire;
+  /** De quoi dessiner la slab entière : la plaque du concours **et** celle de l'animal. */
+  pet: WinnerPetWire;
+}
+
+export interface WinnerPetWire {
   petUid: string;
-  petName: string;
+  number: number;
+  name: string;
+  breed: string | null;
+  species: SpeciesWire;
+  sex: string | null;
+  level: number;
+  stats: StatsWire;
   photoUrl: string | null;
 }
 

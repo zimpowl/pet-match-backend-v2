@@ -2,6 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { CONTESTS, PARTICIPANTS, db } from "../firebase";
 import { ContestDoc, ContestParticipantDoc } from "../models/contest";
 import { WinnersResponse } from "./contract";
+import { stats } from "./mappers";
 import { toMillisOrZero } from "../core/time";
 import { JsonResponse, respond } from "../http/respond";
 
@@ -47,9 +48,17 @@ export const getWinnersHttp = onRequest({ cors: true }, (_req, res) =>
             judges: data.counts?.judges ?? 0,
             participants: data.counts?.participants ?? 0,
           },
-          petUid: participant.petId,
-          petName: participant.petName,
-          photoUrl: participant.photoUrl ?? null,
+          pet: {
+            petUid: participant.petId,
+            number: participant.petNumber,
+            name: participant.petName,
+            breed: participant.petBreed,
+            species: participant.species,
+            sex: participant.sex,
+            level: participant.gradeAtEntry ?? 0,
+            stats: stats(participant.statsAtContest),
+            photoUrl: participant.photoUrl ?? null,
+          },
         };
       }),
     );

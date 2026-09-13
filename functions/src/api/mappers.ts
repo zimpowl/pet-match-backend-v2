@@ -214,7 +214,7 @@ export function duelPet(participant: ContestParticipantDoc): DuelPetWire {
   };
 }
 
-function stats(source: StatsWire | undefined): StatsWire {
+export function stats(source: StatsWire | undefined): StatsWire {
   return {
     contests: source?.contests ?? 0,
     bestRank: source?.bestRank ?? null,
