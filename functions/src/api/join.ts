@@ -21,6 +21,7 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { assertActive } from "../core/suspension";
 
 /**
  * Inscription d'un animal. Pendant `DRAFT` uniquement (D39) : il faut connaître
@@ -36,6 +37,7 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(userUid);
     const contestUid = requiredField(body, "contestUid");
     const petUid = requiredField(body, "petUid");
     // La photo choisie pour **ce** concours. Elle est optionnelle : sans elle on

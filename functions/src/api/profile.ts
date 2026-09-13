@@ -27,6 +27,7 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { assertActive } from "../core/suspension";
 import { ContestParticipantDoc } from "../models/contest";
 
 interface PetShelfEntry {
@@ -158,6 +159,7 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(userUid);
     const source = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, string | boolean | null> = {};
 

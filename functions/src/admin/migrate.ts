@@ -643,6 +643,7 @@ async function main(): Promise<void> {
       // Personne n'a signé le nouveau règlement : tout le monde repasse par la
       // porte au prochain lancement (D125).
       rulesSignedAt: null,
+      suspendedUntil: null,
       grade: { level: computeGradeLevel(stats, false) },
       judgeNumber: judgedAt === undefined ? null : judgeNumbers.get(userUid) ?? null,
       judgeSince: judgedAt === undefined ? null : Timestamp.fromMillis(judgedAt),

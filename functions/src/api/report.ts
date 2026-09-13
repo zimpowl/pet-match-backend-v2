@@ -12,6 +12,7 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { assertActive } from "../core/suspension";
 
 /**
  * Signaler une publication (D129). La charte le promet à chaque page : sans cet
@@ -26,6 +27,7 @@ export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const reporterUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(reporterUid);
 
     const target = readTarget(body);
     const targetUid = readTargetUid(body);

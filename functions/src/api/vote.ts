@@ -36,6 +36,7 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { assertActive } from "../core/suspension";
 
 /**
  * Le vote. Une seule transaction : allocation du jour, ELO des deux animaux,
@@ -55,6 +56,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(userUid);
     const contestUid = requiredField(body, "contestUid");
     const aPetUid = requiredField(body, "aPetUid");
     const bPetUid = requiredField(body, "bPetUid");

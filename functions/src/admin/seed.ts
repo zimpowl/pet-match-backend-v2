@@ -116,6 +116,7 @@ function buildUser(
     nickname: name,
     deletedAt: null,
     rulesSignedAt: null,
+    suspendedUntil: null,
     notifications: null,
     avatarUrl,
     description: null,

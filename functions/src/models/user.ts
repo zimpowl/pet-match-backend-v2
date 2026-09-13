@@ -56,6 +56,12 @@ export interface UserDoc {
    * elle qu'on réaffiche, et c'est elle qui fera foi le jour où le texte change.
    */
   rulesSignedAt: firestore.Timestamp | null;
+  /**
+   * Suspension temporaire (D133). Le compte garde tout et ne peut plus agir
+   * jusqu'à cette date. Null = jamais suspendu ; une date passée = suspension
+   * purgée, qu'on garde parce qu'elle a eu lieu.
+   */
+  suspendedUntil: firestore.Timestamp | null;
   judgeNumber: number | null;
   judgeSince: firestore.Timestamp | null;
   stats: StatsDoc;

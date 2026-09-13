@@ -18,6 +18,7 @@ import {
   respond,
 } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { assertActive } from "../core/suspension";
 
 /**
  * Création d'un animal. Le numéro vient de la séquence globale de l'espèce
@@ -32,6 +33,7 @@ export const createPetHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(userUid);
 
     const parsed = readPetInput(body);
     if (!parsed.ok) throw petError(parsed.rejection);
@@ -82,6 +84,7 @@ export const updatePetHttp = onRequest({ cors: true }, (req, res) =>
     const query = req.query as Query;
     const body = req.body as unknown;
     const userUid = await callerUid(query, body, req.headers.authorization);
+    await assertActive(userUid);
     const petUid = requiredField(body, "petUid");
 
     const parsed = readPetInput((body as Record<string, unknown>).pet);

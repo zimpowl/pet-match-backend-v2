@@ -4,6 +4,7 @@ import { USERS, db } from "../firebase";
 import { UserDoc } from "../models/user";
 import { JsonResponse, Query, respond } from "../http/respond";
 import { callerUid } from "../http/identity";
+import { isSuspended } from "../core/suspension";
 
 /**
  * Le premier appel après l'authentification Firebase : il crée le joueur s'il
@@ -34,6 +35,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         fcmToken: user.fcmToken ?? null,
         needsRules: !user.rulesSignedAt,
         rulesSignedAt: user.rulesSignedAt?.toMillis() ?? null,
+        suspendedUntil: isSuspended(user) ? user.suspendedUntil?.toMillis() ?? null : null,
         needsProfile: needsProfile(user),
         notifications: {
           results: user.notifications?.results ?? true,
@@ -59,6 +61,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       grade: { level: 0 },
       notifications: null,
       rulesSignedAt: null,
+      suspendedUntil: null,
       judgeNumber: null,
       judgeSince: null,
       stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
@@ -72,6 +75,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       fcmToken: null,
       needsRules: true,
       rulesSignedAt: null,
+      suspendedUntil: null,
       needsProfile: true,
       notifications: { results: true, reminders: true },
     };
