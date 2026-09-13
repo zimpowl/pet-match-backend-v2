@@ -17,7 +17,8 @@
     "purge": "tsc && node lib/admin/purge.js",
     "tokens": "tsc && node lib/admin/tokens.js",
     "nationality": "tsc && node lib/admin/nationality.js",
-    "schedule": "tsc && node lib/admin/schedule.js"
+    "schedule": "tsc && node lib/admin/schedule.js",
+    "grades": "tsc && node lib/admin/grades.js"
   },
   "engines": {
     "node": "24"
