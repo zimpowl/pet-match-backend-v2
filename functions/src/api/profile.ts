@@ -75,7 +75,7 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
     return {
       dailyVotes: await resolveDailyVotes(userUid, now, prefetched),
       judge: judgeProfile(userUid, user),
-      pets: pets.map((pet) => petProfile(pet.uid, pet.doc)),
+      pets: pets.map((pet) => petProfile(pet.uid, pet.doc, viewerUid === userUid)),
       contests: prefetched.map((entry) =>
         contestCard(entry.contest.uid, entry.contest.doc, entry.me),
       ),
@@ -131,7 +131,7 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
 
     return {
       dailyVotes: await resolveDailyVotes(userUid, now),
-      pet: petProfile(pet.uid, pet.doc),
+      pet: petProfile(pet.uid, pet.doc, userUid === pet.doc.userUid),
       owner: judgeProfile(pet.doc.userUid, owner),
       contests: shelf.map((entry) =>
         contestCard(entry.contest.uid, entry.contest.doc, {

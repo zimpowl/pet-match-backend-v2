@@ -46,6 +46,11 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
         name: participant.petName,
         photoUrl: participant.photoUrl,
       },
+      bearer: {
+        name: participant.petName,
+        photoUrl: participant.photoUrl,
+        subtext: participant.petBreed,
+      },
       votes: judge ? judgeVotes(contest, judge) : null,
       // Même règle que partout : l'instantané du dernier 18 h, et la valeur
       // vive seulement une fois le concours clos (D54).
@@ -68,6 +73,11 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       rank: judge.rank,
       registrationIndex: judge.registrationIndex,
       pet: null,
+      bearer: {
+        name: judge.userName,
+        photoUrl: judge.userAvatarUrl,
+        subtext: null,
+      },
       votes: judgeVotes(contest, judge),
       // Pas d'ELO pour les jurés (D17), et rien de reçu : ils donnent.
       elo: 0,
@@ -89,6 +99,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     rank: null,
     registrationIndex: null,
     pet: null,
+    bearer: null,
     votes: null,
     elo: 0,
     votesReceived: 0,
@@ -242,8 +253,9 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
   };
 }
 
-export function petProfile(petUid: string, pet: PetDoc): PetWire {
+export function petProfile(petUid: string, pet: PetDoc, owned = false): PetWire {
   return {
+    microchipId: owned ? pet.microchipId ?? null : null,
     petUid,
     userUid: pet.userUid,
     number: pet.number,

@@ -105,6 +105,28 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "reporterUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "target",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "targetUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

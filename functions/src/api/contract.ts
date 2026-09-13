@@ -35,6 +35,19 @@ export interface ContestMePetWire {
   photoUrl: string | null;
 }
 
+/**
+ * L'identité qui a signé **ce concours-là** : le nom et la photo tels qu'ils
+ * étaient à l'inscription, ou au premier vote pour un juré. Une slab close les
+ * sert à la place du profil vivant — changer de pseudo ou de photo ne réécrit
+ * pas ce qui est déjà gravé (D128). Null quand il n'y a pas de rôle.
+ */
+export interface ContestBearerWire {
+  name: string;
+  photoUrl: string | null;
+  /** La race de l'animal, figée avec le reste. Null pour un juré. */
+  subtext: string | null;
+}
+
 export interface ContestMeVotesWire {
   cast: number;
   judged: number;
@@ -53,6 +66,7 @@ export interface ContestMeWire {
   rank: number | null;
   registrationIndex: number | null;
   pet: ContestMePetWire | null;
+  bearer: ContestBearerWire | null;
   votes: ContestMeVotesWire | null;
   /**
    * L'ELO de **mon** animal sur ce concours, gelé au dernier 18 h comme partout
@@ -165,6 +179,12 @@ export interface JudgeWire {
 }
 
 export interface PetWire {
+  /**
+   * Le numéro de puce n'est **jamais public** : il identifie l'animal, et le
+   * donner à tout le monde offrirait à n'importe qui de quoi le revendiquer.
+   * Il ne sort que pour son propriétaire, qui en a besoin pour le corriger.
+   */
+  microchipId?: string | null;
   petUid: string;
   /** À qui il appartient : sans lui, on ne sait pas quel profil ouvrir. */
   userUid: string;

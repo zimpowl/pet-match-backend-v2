@@ -16,3 +16,6 @@ export const SEQUENCES = "sequences";
 
 /** Les demandes de confirmation d'identité (D126), juré comme animal. */
 export const VERIFICATIONS = "verifications";
+
+/** Les signalements de la charte (D129), lus par une personne. */
+export const REPORTS = "reports";

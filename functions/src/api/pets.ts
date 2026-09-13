@@ -67,7 +67,7 @@ export const createPetHttp = onRequest({ cors: true }, (req, res) =>
       return pet;
     });
 
-    return petProfile(petRef.id, created);
+    return petProfile(petRef.id, created, true);
   }),
 );
 
@@ -117,7 +117,7 @@ export const updatePetHttp = onRequest({ cors: true }, (req, res) =>
       return { ...current, ...patch } as PetDoc;
     });
 
-    return petProfile(petUid, updated);
+    return petProfile(petUid, updated, true);
   }),
 );
 

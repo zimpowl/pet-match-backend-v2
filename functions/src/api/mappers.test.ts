@@ -99,12 +99,29 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
     rank: null,
     registrationIndex: null,
     pet: null,
+    bearer: null,
     votes: null,
     elo: 0,
     votesReceived: 0,
     level: 0,
     career: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
     winner: null,
+  });
+});
+
+test("la slab close sert l'identité qui a signé, pas le profil vivant (D128)", () => {
+  const asParticipant = meWire(contest(), { participant: participant(), judge: null });
+  assert.deepEqual(asParticipant.bearer, {
+    name: participant().petName,
+    photoUrl: participant().photoUrl,
+    subtext: participant().petBreed,
+  });
+
+  const asJudge = meWire(contest(), { participant: null, judge: judge() });
+  assert.deepEqual(asJudge.bearer, {
+    name: judge().userName,
+    photoUrl: judge().userAvatarUrl,
+    subtext: null,
   });
 });
 
