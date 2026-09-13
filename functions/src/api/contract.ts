@@ -222,19 +222,20 @@ export interface VoteSessionResponse {
   votesLimit: number;
 }
 
-/** Le premier d'un concours clos, et de quoi en dessiner la slab. */
-export interface WinnerWire {
+/** Une place de podium d'un concours clos, et de quoi en dessiner la slab. */
+export interface PodiumEntryWire {
   contestUid: string;
   number: number;
   theme: string;
   startAt: number;
   endAt: number;
   counts: ContestCountsWire;
+  rank: number;
   /** De quoi dessiner la slab entière : la plaque du concours **et** celle de l'animal. */
-  pet: WinnerPetWire;
+  pet: PodiumPetWire;
 }
 
-export interface WinnerPetWire {
+export interface PodiumPetWire {
   petUid: string;
   number: number;
   name: string;
@@ -246,8 +247,8 @@ export interface WinnerPetWire {
   photoUrl: string | null;
 }
 
-export interface WinnersResponse {
-  winners: WinnerWire[];
+export interface PodiumsResponse {
+  entries: PodiumEntryWire[];
 }
 
 /** Ce que porte un numéro : jusqu'à un concours, deux animaux et un juré. */

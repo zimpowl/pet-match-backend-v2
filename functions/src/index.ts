@@ -8,7 +8,7 @@ export * from "./api/voteSession";
 export * from "./api/profile";
 export * from "./api/search";
 export * from "./api/close";
-export * from "./api/winners";
+export * from "./api/podiums";
 
 // L3 — écritures.
 export * from "./api/join";
