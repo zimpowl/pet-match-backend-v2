@@ -13,6 +13,7 @@ export * from "./api/verify";
 
 // L3 — écritures.
 export * from "./api/join";
+export * from "./api/entry";
 export * from "./api/vote";
 export * from "./api/pets";
 export * from "./api/device";

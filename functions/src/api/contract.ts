@@ -314,3 +314,10 @@ export interface JoinContestResponse {
   dailyVotes: DailyVotesWire;
   contest: ContestCardWire;
 }
+
+/**
+ * Changer la photo d'une inscription, ou l'annuler. Même forme que
+ * l'inscription elle-même : le concours tel qu'il est **après** le geste, avec
+ * son `me` à jour — `PARTICIPANT` et la nouvelle photo, ou `NONE`.
+ */
+export type EntryChangeResponse = JoinContestResponse;

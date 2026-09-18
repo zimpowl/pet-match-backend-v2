@@ -39,3 +39,35 @@ export function rejectJoin(input: JoinInput): JoinRejection | null {
   if (!input.photoUrl) return "PET_HAS_NO_PHOTO";
   return null;
 }
+
+/**
+ * Les gardes d'une inscription **déjà posée** qu'on veut reprendre : changer sa
+ * photo, ou l'annuler. La fenêtre est celle du D39, à l'identique — tant que le
+ * concours est en `DRAFT`, l'inscription n'engage rien ; dès qu'il est `ACTIVE`
+ * elle est en course, les duels se jouent contre elle, et l'en sortir referait
+ * le classement des autres.
+ */
+export type EntryRejection =
+  | "NOT_REGISTERED"
+  | "NOT_OWNER"
+  | "CONTEST_NOT_DRAFT"
+  | "PET_HAS_NO_PHOTO";
+
+export interface EntryChangeInput {
+  readonly status: ContestStatus;
+  /** null quand l'animal n'est pas inscrit à ce concours. */
+  readonly participantOwnerUid: string | null;
+  readonly callerUid: string;
+  /** La nouvelle photo. Ignorée par un retrait, qui n'en demande aucune. */
+  readonly photoUrl: string | null;
+  /** Faux pour un retrait : il n'y a alors rien à imprimer. */
+  readonly requiresPhoto: boolean;
+}
+
+export function rejectEntryChange(input: EntryChangeInput): EntryRejection | null {
+  if (input.participantOwnerUid === null) return "NOT_REGISTERED";
+  if (input.participantOwnerUid !== input.callerUid) return "NOT_OWNER";
+  if (input.status !== "DRAFT") return "CONTEST_NOT_DRAFT";
+  if (input.requiresPhoto && !input.photoUrl) return "PET_HAS_NO_PHOTO";
+  return null;
+}
