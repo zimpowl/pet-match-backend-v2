@@ -49,8 +49,8 @@ export const getPodiumsHttp = onRequest({ cors: true }, (_req, res) =>
               startAt: toMillisOrZero(data.startAt),
               endAt: toMillisOrZero(data.endAt),
               counts: {
-                judges: data.counts?.judges ?? 0,
-                participants: data.counts?.participants ?? 0,
+                judges: data.counts.judges,
+                participants: data.counts.participants,
               },
               rank,
               pet: {

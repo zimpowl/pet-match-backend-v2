@@ -176,7 +176,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
           seenPairs: FieldValue.arrayUnion(key),
         });
       } else {
-        const registrationIndex = (contest.counts?.judges ?? 0) + 1;
+        const registrationIndex = contest.counts.judges + 1;
         const created: ContestJudgeDoc = {
           userUid,
           judgeNumber,

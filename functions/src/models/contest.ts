@@ -15,7 +15,23 @@ export interface ContestDoc {
   maxVotesPerJudge: number;
   maxVotesPerDay: number;
   eloKFactor: number;
-  counts: { participants: number; judges: number };
+  /**
+   * Trois compteurs, et ils ne disent pas la même chose.
+   *
+   * `participants` est l'effectif **en course** : il descend quand une
+   * inscription est retirée, et l'activation le recompte sur la collection
+   * réelle (§4.3). C'est lui qu'on affiche.
+   *
+   * `registrations` est le nombre d'inscriptions jamais posées ici. Il ne
+   * descend pas : c'est la source de `registrationIndex` (D87), et un rang de
+   * passage ne se recycle pas — le réattribuer donnerait deux fois le même
+   * numéro d'ordre, donc deux slabs qui se disputent une place.
+   *
+   * `judges` fait les deux à la fois, et le peut : un juré n'est jamais retiré
+   * d'un concours — la modération le masque, elle ne l'efface pas (D134) —,
+   * donc son effectif est déjà monotone.
+   */
+  counts: { participants: number; judges: number; registrations: number };
   /**
    * Horodatage du dernier instantané de 18 h (D54, §4.2 bis). Null jusqu'au
    * premier — le lundi 18 h : d'ici là les listes sortent dans l'ordre

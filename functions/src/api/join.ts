@@ -76,8 +76,11 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
       const photoUrl = chosenPhotoUrl ?? pet.photoUrl;
       if (!photoUrl) throw badRequest(`${petUid} n'a pas de photo`);
 
-      // Le rang du premier tour, avant tout classement (D87).
-      const registrationIndex = (contest.counts?.participants ?? 0) + 1;
+      // Le rang du premier tour, avant tout classement (D87). Il sort du
+      // compteur d'inscriptions, pas de l'effectif : un retrait libère une
+      // place, jamais un numéro d'ordre.
+      const registrationIndex = contest.counts.registrations + 1;
+      const participants = contest.counts.participants + 1;
 
       const participant: ContestParticipantDoc = {
         petId: petUid,
@@ -113,12 +116,15 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
       };
 
       t.set(participantRef, participant);
-      t.update(contestRef, { "counts.participants": registrationIndex });
+      t.update(contestRef, {
+        "counts.participants": participants,
+        "counts.registrations": registrationIndex,
+      });
 
       return {
         contest: {
           ...contest,
-          counts: { ...contest.counts, participants: registrationIndex },
+          counts: { ...contest.counts, participants, registrations: registrationIndex },
         },
         participant,
       };

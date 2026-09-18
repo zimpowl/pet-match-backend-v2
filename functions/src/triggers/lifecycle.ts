@@ -613,7 +613,7 @@ async function openNextDraft(
       maxVotesPerJudge: 0,
       maxVotesPerDay: 0,
       eloKFactor: active.eloKFactor || DEFAULT_K_FACTOR,
-      counts: { participants: 0, judges: 0 },
+      counts: { participants: 0, judges: 0, registrations: 0 },
       snapshotAt: null,
     };
 

@@ -37,7 +37,7 @@ function contest(overrides: Partial<ContestDoc> = {}): ContestDoc {
     maxVotesPerJudge: 70,
     maxVotesPerDay: 10,
     eloKFactor: 24,
-    counts: { participants: 31, judges: 24 },
+    counts: { participants: 31, judges: 24, registrations: 33 },
     snapshotAt: null,
     ...overrides,
   };

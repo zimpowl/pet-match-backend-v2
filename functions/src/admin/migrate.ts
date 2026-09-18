@@ -134,7 +134,7 @@ async function main(): Promise<void> {
     db.collection("pets").get(),
     db.collection("users").get(),
     db.collection("challenges").get(),
-    db.collection("contests").select("number").get(),
+    db.collection("contests").select("number", "counts").get(),
   ]);
 
   const legacyPets = new Map<string, LegacyPet>(
@@ -399,7 +399,13 @@ async function main(): Promise<void> {
       maxVotesPerJudge: cap,
       maxVotesPerDay: LEGACY_VOTES_PER_DAY,
       eloKFactor: challenge.doc.eloKFactor ?? DEFAULT_K_FACTOR,
-      counts: { participants: participantCount, judges: challenge.judges.length },
+      counts: {
+        participants: participantCount,
+        judges: challenge.judges.length,
+        // Le legacy n'enregistrait pas les retraits : tout inscrit encore là
+        // a été inscrit une fois, et le compteur part donc de l'effectif.
+        registrations: participantCount,
+      },
       // Un concours clos a eu tous ses 18 h ; les autres n'en ont pas encore eu
       // de reconstituable, et leurs listes sortiront donc en ordre d'inscription.
       snapshotAt: status === "CLOSED" ? Timestamp.fromMillis(endAt) : null,
@@ -660,6 +666,43 @@ async function main(): Promise<void> {
     };
     writes.push({ path: `users/${userUid}`, data: patch, merge: true });
     bump("utilisateurs");
+  }
+
+  // ---- Rattrapage des concours d'une passe antérieure ----------------------
+  /**
+   * `counts.registrations` est né après la première passe de cette migration.
+   * Les concours qu'elle avait posés ne le portent pas, et la source qui les a
+   * produits — `challenges` — a disparu une fois migrée : la boucle ci-dessus
+   * ne repassera donc jamais dessus. Sans ce rattrapage, une inscription sur
+   * l'un d'eux calculerait son rang sur un `undefined`.
+   *
+   * On le sème sur le **plus grand `registrationIndex` déjà distribué**, et non
+   * sur l'effectif : c'est l'invariant qui compte — le prochain inscrit doit
+   * recevoir un numéro d'ordre que personne ne porte. Les deux coïncident sur
+   * les données reprises, le legacy n'ayant jamais enregistré de retrait, mais
+   * c'est le premier qui reste vrai si un trou apparaît.
+   */
+  const migratedHere = new Set(challenges.map((challenge) => challenge.id));
+
+  for (const doc of existingContestsSnap.docs) {
+    if (migratedHere.has(doc.id) || foreignContestIds.has(doc.id)) continue;
+    if (typeof doc.get("counts.registrations") === "number") continue;
+
+    const participants = await doc.ref
+      .collection("participants")
+      .select("registrationIndex")
+      .get();
+    const highest = participants.docs.reduce(
+      (max, row) => Math.max(max, (row.get("registrationIndex") as number) ?? 0),
+      0,
+    );
+
+    writes.push({
+      path: `contests/${doc.id}`,
+      data: { counts: { registrations: highest } },
+      merge: true,
+    });
+    bump("concours rattrapés");
   }
 
   const maxOf = (map: Map<string, number>) =>

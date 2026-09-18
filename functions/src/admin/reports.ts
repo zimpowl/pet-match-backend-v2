@@ -178,7 +178,7 @@ async function withdraw(db: Db, petUid: string, commit: boolean): Promise<string
 
     await db.runTransaction(async (t) => {
       const fresh = await t.get(contestRef);
-      const count = (fresh.get("counts")?.participants ?? 1) - 1;
+      const count = fresh.get("counts").participants - 1;
       t.delete(doc.ref);
       t.update(contestRef, { "counts.participants": Math.max(0, count) });
     });

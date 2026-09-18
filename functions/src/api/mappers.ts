@@ -146,8 +146,8 @@ export function contestCard(
     votesPerDay: contest.maxVotesPerDay,
     endAt: toMillisOrZero(contest.endAt),
     counts: {
-      judges: contest.counts?.judges ?? 0,
-      participants: contest.counts?.participants ?? 0,
+      judges: contest.counts.judges,
+      participants: contest.counts.participants,
     },
     me: meWire(contest, source),
   };

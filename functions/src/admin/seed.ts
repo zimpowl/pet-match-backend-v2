@@ -261,7 +261,11 @@ function seed(writer: Writer, nowMillis: number): void {
       maxVotesPerJudge: contest.maxVotesPerJudge,
       maxVotesPerDay: contest.maxVotesPerDay,
       eloKFactor: DEFAULT_K_FACTOR,
-      counts: { participants: contest.participants, judges: contest.judges },
+      counts: {
+        participants: contest.participants,
+        judges: contest.judges,
+        registrations: contest.participants,
+      },
       snapshotAt: contest.snapshotAt === null ? null : stamp(contest.snapshotAt),
     };
     writer.set(`contests/${contest.uid}`, doc);
