@@ -183,6 +183,7 @@ export const submitVoteHttp = onRequest({ cors: true }, (req, res) =>
           hiddenAt: null,
           userName: user.nickname ?? user.name,
           userAvatarUrl: user.avatarUrl,
+          countryCode: user.countryCode,
           registrationIndex,
           // Le juré à ce concours-ci (D90) : il se compte dès son premier
           // vote, sa médaille attend la clôture.

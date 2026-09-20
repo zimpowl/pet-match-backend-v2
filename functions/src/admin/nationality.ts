@@ -7,6 +7,11 @@ import { getFirestore } from "firebase-admin/firestore";
  * mieux qu'un drapeau absent sur toutes les slabs reprises, et qui vient
  * d'ailleurs la corrigera sur sa fiche.
  *
+ * Les lignes de concours suivent : elles dénormalisent le pays comme le nom,
+ * et celles écrites avant que le champ existe n'en ont aucun. On y recopie
+ * celui de la fiche — l'étiquette d'un concours d'il y a trois mois n'a pas de
+ * pays reconstituable, celui d'aujourd'hui est la meilleure approximation.
+ *
  * La migration écrit déjà « FR » pour les nouvelles reprises (§6) ; cet outil
  * ne sert qu'aux jeux de données déjà migrés.
  *
@@ -64,8 +69,46 @@ async function main(): Promise<void> {
     console.log(`${collection} ${options.commit ? "passés" : "à passer"} en FR : ${snap.size}`);
   }
 
+  await stampContestRows(db, options);
+
   if (!options.commit) {
     console.log("\n--dry-run : rien n'a été écrit. Ajouter --commit pour appliquer.");
+  }
+}
+
+/**
+ * Un champ absent ne répond pas à `where("countryCode", "==", null)` : seul un
+ * null explicite le fait. Les lignes écrites avant le champ se trient donc à la
+ * lecture, pas à la requête.
+ */
+async function stampContestRows(
+  db: FirebaseFirestore.Firestore,
+  options: Options,
+): Promise<void> {
+  const sources: ReadonlyArray<{ group: string; owner: string; key: string }> = [
+    { group: "participants", owner: "pets", key: "petId" },
+    { group: "judges", owner: "users", key: "userUid" },
+  ];
+
+  for (const source of sources) {
+    const snap = await db.collectionGroup(source.group).get();
+    const stale = snap.docs.filter((doc) => doc.get("countryCode") == null);
+
+    if (options.commit) {
+      const writer = db.bulkWriter();
+      for (const doc of stale) {
+        const ownerId = doc.get(source.key) as string | undefined;
+        const owner = ownerId ?
+          await db.collection(source.owner).doc(ownerId).get() :
+          null;
+        const countryCode = (owner?.get("countryCode") as string | null) ?? FRANCE;
+        void writer.update(doc.ref, { countryCode });
+      }
+      await writer.close();
+    }
+
+    const verb = options.commit ? "datées" : "à dater";
+    console.log(`lignes ${source.group} ${verb} : ${stale.length} / ${snap.size}`);
   }
 }
 

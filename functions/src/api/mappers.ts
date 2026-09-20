@@ -174,6 +174,7 @@ export function participantRow(
     breed: participant.petBreed,
     species: participant.species,
     sex: participant.sex ?? null,
+    countryCode: participant.countryCode,
     photoUrl: participant.hiddenAt ? null : participant.photoUrl ?? null,
     photoRemoved: participant.hiddenAt != null,
     elo: status === "CLOSED" ?
@@ -207,6 +208,7 @@ export function judgeRow(
     number: judge.judgeNumber,
     name: judge.userName,
     avatarUrl: judge.hiddenAt ? null : judge.userAvatarUrl,
+    countryCode: judge.countryCode,
     judgeSince: toMillisOrZero(judge.joinedAt),
     votes: contest.status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
     castVotes: judge.votes,

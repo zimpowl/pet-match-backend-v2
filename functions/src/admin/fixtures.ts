@@ -109,6 +109,7 @@ export interface ParticipantFixture {
   readonly petBreed: string;
   readonly species: Species;
   readonly sex: Sex;
+  readonly countryCode: string;
   readonly photoUrl: string;
   readonly registrationIndex: number;
   readonly elo: number;
@@ -143,6 +144,7 @@ export function participantFixture(
       BREEDS[index % BREEDS.length] ?? "sans race",
     species: mine ? "DOG" : index % 5 === 4 ? "CAT" : "DOG",
     sex: mine || index % 2 === 0 ? "MALE" : "FEMALE",
+    countryCode: "FR",
     photoUrl: photo(mine ? 42 : petNumber),
     registrationIndex: index + 1,
     elo,
@@ -162,6 +164,7 @@ export interface JudgeFixture {
   readonly judgeNumber: number;
   readonly userName: string;
   readonly userAvatarUrl: string;
+  readonly countryCode: string;
   readonly registrationIndex: number;
   readonly votesPerDay: number[];
   readonly votes: number;
@@ -186,6 +189,7 @@ export function judgeFixture(
     judgeNumber,
     userName: mine ? "Zimpo" : NAMES[(index + 3) % NAMES.length] ?? "Sans nom",
     userAvatarUrl: photo(judgeNumber),
+    countryCode: "FR",
     registrationIndex: index + 1,
     votesPerDay,
     votes,

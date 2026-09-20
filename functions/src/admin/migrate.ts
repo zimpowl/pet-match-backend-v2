@@ -442,6 +442,9 @@ async function main(): Promise<void> {
         petBreed: pet?.breed ?? fields.breed,
         species: mapSpecies(pet?.species) ?? "DOG",
         sex: mapSex(pet?.gender),
+        // Même supposition que sur la fiche de l'animal : le legacy ne
+        // demandait pas de pays et l'app s'est jouée en France.
+        countryCode: FRANCE,
         photoUrl: data.imageUrl ?? pet?.imageUrl ?? "",
         hiddenAt: null,
         registrationIndex: registrationOrder.get(participant.id) ?? 1,
@@ -496,6 +499,7 @@ async function main(): Promise<void> {
         judgeNumber: judgeNumbers.get(judge.id) ?? 0,
         userName: data.userName ?? legacyUsers.get(judge.id)?.name ?? "",
         userAvatarUrl: data.userAvatarUrl ?? legacyUsers.get(judge.id)?.avatarUrl ?? null,
+        countryCode: FRANCE,
         hiddenAt: null,
         registrationIndex: judgeOrder.get(judge.id) ?? 1,
         gradeAtEntry: frozen.get(`j:${challenge.id}:${judge.id}`)?.grade ?? 0,

@@ -56,6 +56,12 @@ export interface ContestParticipantDoc {
    * portaient pas — l'icône se tait alors, elle ne devine pas.
    */
   sex: Sex | null;
+  /**
+   * Le pays est dénormalisé comme le nom et le sexe : l'étiquette d'identité
+   * est une empreinte du jour de l'inscription. Null tant que la migration
+   * n'est pas passée ; personne d'autre n'écrit null.
+   */
+  countryCode: string | null;
   photoUrl: string;
   /**
    * Retiré par la modération (D134). La photo **reste** — c'est la preuve du
@@ -103,6 +109,8 @@ export interface ContestJudgeDoc {
   judgeNumber: number;
   userName: string;
   userAvatarUrl: string | null;
+  /** Dénormalisé comme le nom, même raison que chez le participant. */
+  countryCode: string | null;
   /** Avatar retiré par la modération (D134) : conservé, plus servi. */
   hiddenAt: firestore.Timestamp | null;
   /** Rang du premier tour, comme pour les participants (D87). */

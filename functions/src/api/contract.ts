@@ -133,6 +133,7 @@ export interface ParticipantRowWire {
   breed: string | null;
   species: SpeciesWire;
   sex: string | null;
+  countryCode: string | null;
   photoUrl: string | null;
   elo: number;
   votesReceived: number;
@@ -147,6 +148,7 @@ export interface JudgeRowWire {
   number: number;
   name: string;
   avatarUrl: string | null;
+  countryCode: string | null;
   judgeSince: number;
   /** Les votes **jugés** : ceux du dernier 18 h, ou tous une fois clos. */
   votes: number;

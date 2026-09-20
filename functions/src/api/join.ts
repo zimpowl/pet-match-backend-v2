@@ -90,6 +90,7 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         petBreed: pet.breed,
         species: pet.species,
         sex: pet.sex,
+        countryCode: pet.countryCode,
         hiddenAt: null,
         // La photo **de cette inscription**, dénormalisée : c'est elle qui sera
         // imprimée, et elle n'a aucune raison d'être celle du profil de
