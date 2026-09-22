@@ -148,6 +148,7 @@ export interface JudgeRowWire {
   number: number;
   name: string;
   avatarUrl: string | null;
+  photoRemoved: boolean;
   countryCode: string | null;
   judgeSince: number;
   /** Les votes **jugés** : ceux du dernier 18 h, ou tous une fois clos. */
@@ -173,6 +174,9 @@ export interface StatsWire {
   bronze: number;
 }
 
+/** Les crans franchis et leur date, en millisecondes. Vide avant le premier. */
+export type GradeDatesWire = Record<string, number>;
+
 export interface JudgeWire {
   avatarRemoved?: boolean;
   userUid: string;
@@ -182,6 +186,7 @@ export interface JudgeWire {
   judgeSince: number;
   countryCode: string | null;
   level: number;
+  gradeReachedAt: GradeDatesWire;
   stats: StatsWire;
 }
 
@@ -205,6 +210,7 @@ export interface PetWire {
   birthDate: number | null;
   countryCode: string | null;
   level: number;
+  gradeReachedAt: GradeDatesWire;
   stats: StatsWire;
 }
 

@@ -1,5 +1,6 @@
 import { firestore } from "firebase-admin";
 import { Sex, Species } from "./contest";
+import { GradeDoc } from "./grade";
 import { StatsDoc } from "./user";
 
 export interface PetDoc {
@@ -25,6 +26,6 @@ export interface PetDoc {
   /** Retiré de l'étagère et de la recherche ; ses participations demeurent. */
   deletedAt: firestore.Timestamp | null;
   /** Grade de l'animal (§4.8), progression séparée de celle du juré. */
-  grade: { level: number };
+  grade: GradeDoc;
   stats: StatsDoc;
 }

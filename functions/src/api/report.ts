@@ -31,25 +31,28 @@ export const submitReportHttp = onRequest({ cors: true }, (req, res) =>
 
     const target = readTarget(body);
     const targetUid = readTargetUid(body);
+    const photoUrl = readPhotoUrl(body);
 
     await assertReportable(target, targetUid, reporterUid);
 
-    // Re-signaler la même chose n'ajoute rien à la file : la première ligne
-    // attend déjà qu'on la lise.
+    // Re-signaler la même image n'ajoute rien à la file : la première ligne
+    // attend déjà qu'on la lise. Une autre image du même animal, si.
     const open = await db
       .collection(REPORTS)
       .where("reporterUid", "==", reporterUid)
       .where("target", "==", target)
       .where("targetUid", "==", targetUid)
       .where("status", "==", "OPEN")
-      .limit(1)
       .get();
-    if (!open.empty) throw conflict("vous avez déjà signalé cette publication");
+    if (open.docs.some((doc) => (doc.get("photoUrl") ?? null) === photoUrl)) {
+      throw conflict("vous avez déjà signalé cette publication");
+    }
 
     const doc: ReportDoc = {
       reporterUid,
       target,
       targetUid,
+      photoUrl,
       status: "OPEN",
       createdAt: Timestamp.now(),
       reviewedAt: null,
@@ -82,6 +85,11 @@ function readTarget(body: unknown): ReportTarget {
   const raw = (body as Record<string, unknown>)?.target;
   if (raw === "PET" || raw === "JUDGE") return raw;
   throw badRequest("target doit valoir PET ou JUDGE");
+}
+
+function readPhotoUrl(body: unknown): string | null {
+  const raw = (body as Record<string, unknown>)?.photoUrl;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
 function readTargetUid(body: unknown): string {

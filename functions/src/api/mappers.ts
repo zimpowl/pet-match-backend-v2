@@ -3,9 +3,11 @@ import {
   ContestJudgeDoc,
   ContestParticipantDoc,
 } from "../models/contest";
+import { GradeDoc } from "../models/grade";
 import { PetDoc } from "../models/pet";
 import { UserDoc } from "../models/user";
 import {
+  GradeDatesWire,
   ContestCardWire,
   ContestMeWire,
   ContestStatusWire,
@@ -208,6 +210,7 @@ export function judgeRow(
     number: judge.judgeNumber,
     name: judge.userName,
     avatarUrl: judge.hiddenAt ? null : judge.userAvatarUrl,
+    photoRemoved: judge.hiddenAt != null,
     countryCode: judge.countryCode,
     judgeSince: toMillisOrZero(judge.joinedAt),
     votes: contest.status === "CLOSED" ? judge.votes : judge.votesSnapshot ?? 0,
@@ -257,6 +260,7 @@ export function judgeProfile(userUid: string, user: UserDoc): JudgeWire {
     judgeSince: toMillisOrZero(user.judgeSince ?? user.createdAt),
     countryCode: user.countryCode,
     level: user.grade?.level ?? 0,
+    gradeReachedAt: gradeDates(user.grade),
     stats: stats(user.stats),
   };
 }
@@ -276,8 +280,16 @@ export function petProfile(petUid: string, pet: PetDoc, owned = false): PetWire 
     birthDate: toMillis(pet.birthDate),
     countryCode: pet.countryCode,
     level: pet.grade?.level ?? 0,
+    gradeReachedAt: gradeDates(pet.grade),
     stats: stats(pet.stats),
   };
+}
+
+/** Les dates du dossier voyagent en millisecondes, comme tout le reste. */
+function gradeDates(grade: GradeDoc | undefined): GradeDatesWire {
+  return Object.fromEntries(
+    Object.entries(grade?.reachedAt ?? {}).map(([level, at]) => [level, at.toMillis()]),
+  );
 }
 
 /** Le concours actif dont le juré tire son allocation du jour. */

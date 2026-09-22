@@ -4,35 +4,48 @@ import { initializeApp } from "firebase-admin/app";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
 
 /**
- * Suppression des collections mortes de la v0. Sauvegarde **avant** de
- * supprimer, `--dry-run` par défaut, garde anti-prod, et liste blanche : une
- * faute de frappe ne peut pas viser `users`, `pets` ou `challenges`.
+ * Suppression des collections mortes, sous-collections comprises. Sauvegarde
+ * **avant** de supprimer, `--dry-run` par défaut, garde anti-prod et liste
+ * blanche.
  *
- *   npm run cleanup -- --project=pet-match---debug --collection=contests
- *   npm run cleanup -- --project=pet-match---debug --collection=contests --commit
+ *   npm run cleanup -- --project=pet-match---debug --collection=challenges
+ *   npm run cleanup -- --project=pet-match---debug --collection=challenges --commit
+ *
+ * Ordre de la bascule finale, et il compte : la migration **lit** `challenges`,
+ * donc elle ne peut pas les supprimer elle-même sans se priver de sa source.
+ *
+ *   1. npm run migrate -- --project=… --commit     (rejouable tant qu'on teste)
+ *   2. vérifier l'app de bout en bout
+ *   3. npm run cleanup -- --project=… --collection=challenges,contests,matches,posts --commit
+ *
+ * Après l'étape 3 il ne reste plus une ligne de legacy, et le garde `contestOf`
+ * de `collections.ts` n'a plus rien à écarter.
  */
+
+type Selector = (doc: FirebaseFirestore.QueryDocumentSnapshot) => boolean;
 
 /**
- * Ce qui est supprimable, et pourquoi. Le backend legacy encore déployé ne lit
- * aucune de ces trois collections — il ne touche que `challenges`, `judges`,
- * `participants`, `votes`, `pets`, `users` et `instagram_*`.
+ * Ce qui est supprimable, et ce qu'on en prend.
  *
- * - `contests`  génération v0, remplacée par `challenges` : `category`,
- *               `entryFee`, `petMax`, `winnerUid`, statuts `FINISHED` /
- *               `IN_PROGRESS` / `OPEN_FOR_REGISTRATION`. C'est aussi le nom que
- *               le §3 vise pour v2, donc la place doit être nette.
- * - `matches`   le système de brackets de la v0, dont les identifiants
- *               référencent les anciens `contests`.
- * - `posts`     le fil social de la v0.
+ * - `challenges` la source de la migration : concours, participants, jurés et
+ *                votes de la génération précédente. Le backend legacy la lit
+ *                encore : la supprimer, c'est éteindre l'ancienne app.
+ * - `contests`   **les seuls vestiges v0** — ceux qui n'ont pas de `number`.
+ *                La collection porte aussi les concours v2 : le sélecteur
+ *                existe pour qu'une ligne de commande ne puisse pas les viser.
+ * - `matches`    le système de brackets de la v0.
+ * - `posts`      le fil social de la v0.
  *
- * Volontairement absentes : `configuration` (le gating de version de l'app),
- * `instagram_config` et `instagram_posts` (l'automatisation tourne encore, elle
- * est hors périmètre de la refonte — D15 — mais pas morte), et bien sûr
- * `challenges`, `pets` et `users`, que la migration reprend.
+ * Volontairement absentes : `configuration` (gating de version), `instagram_*`
+ * (l'automatisation tourne encore, D15), `pets` et `users` que la migration
+ * reprend en place.
  */
-const DELETABLE = new Set(["contests", "matches", "posts"]);
-
-const BATCH_SIZE = 400;
+const DELETABLE: Record<string, Selector> = {
+  challenges: () => true,
+  contests: (doc) => typeof doc.get("number") !== "number",
+  matches: () => true,
+  posts: () => true,
+};
 
 interface Options {
   readonly projectId: string;
@@ -58,21 +71,16 @@ function parseOptions(argv: readonly string[]): Options {
     );
   }
 
+  const known = Object.keys(DELETABLE).join(", ");
   const collections = (flag("collection") ?? "")
     .split(",")
     .map((name) => name.trim())
     .filter((name) => name.length > 0);
-  if (collections.length === 0) {
-    throw new Error(
-      `--collection manquant. Supprimables : ${[...DELETABLE].join(", ")}`,
-    );
-  }
+  if (collections.length === 0) throw new Error(`--collection manquant. Supprimables : ${known}`);
 
   for (const name of collections) {
-    if (!DELETABLE.has(name)) {
-      throw new Error(
-        `« ${name} » n'est pas dans la liste blanche. Supprimables : ${[...DELETABLE].join(", ")}`,
-      );
+    if (!(name in DELETABLE)) {
+      throw new Error(`« ${name} » n'est pas dans la liste blanche. Supprimables : ${known}`);
     }
   }
 
@@ -96,6 +104,36 @@ function serialize(value: unknown): unknown {
   return value;
 }
 
+interface Dumped {
+  readonly data: unknown;
+  readonly children: Record<string, Record<string, Dumped>>;
+}
+
+/**
+ * La sauvegarde descend dans les sous-collections : un `challenges/{id}` sans
+ * ses votes ne se restaure pas, et c'est précisément ce qu'on efface.
+ */
+async function dump(ref: FirebaseFirestore.DocumentReference, data: unknown): Promise<Dumped> {
+  const children: Record<string, Record<string, Dumped>> = {};
+
+  for (const child of await ref.listCollections()) {
+    const snap = await child.get();
+    const rows: Record<string, Dumped> = {};
+    for (const doc of snap.docs) rows[doc.id] = await dump(doc.ref, serialize(doc.data()));
+    children[child.id] = rows;
+  }
+
+  return { data, children };
+}
+
+function count(rows: Record<string, Dumped>): number {
+  return Object.values(rows).reduce(
+    (total, row) =>
+      total + 1 + Object.values(row.children).reduce((sub, kids) => sub + count(kids), 0),
+    0,
+  );
+}
+
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const db = getFirestore(initializeApp({ projectId: options.projectId }));
@@ -105,48 +143,34 @@ async function main(): Promise<void> {
 
   for (const name of options.collections) {
     const snap = await db.collection(name).get();
+    const targets = snap.docs.filter(DELETABLE[name]);
+    const kept = snap.size - targets.length;
 
-    // On refuse de supprimer un document qui porte des sous-collections : ce
-    // serait laisser des orphelins injoignables.
-    let withChildren = 0;
-    for (const doc of snap.docs.slice(0, 50)) {
-      const subs = await doc.ref.listCollections();
-      if (subs.length > 0) withChildren++;
-    }
-    if (withChildren > 0) {
-      throw new Error(
-        `${name} : ${withChildren} document(s) portent des sous-collections, suppression refusée`,
-      );
-    }
+    const documents: Record<string, Dumped> = {};
+    for (const doc of targets) documents[doc.id] = await dump(doc.ref, serialize(doc.data()));
 
     const backupPath = join(options.outDir, `${name}.json`);
     writeFileSync(
       backupPath,
-      JSON.stringify(
-        {
-          project: options.projectId,
-          collection: name,
-          count: snap.size,
-          documents: Object.fromEntries(
-            snap.docs.map((doc) => [doc.id, serialize(doc.data())]),
-          ),
-        },
-        null,
-        2,
-      ),
+      JSON.stringify({ project: options.projectId, collection: name, documents }, null, 2),
     );
 
-    const size = String(snap.size).padStart(5);
-    console.log(`  ${name.padEnd(12)} ${size} docs -> sauvegardés dans ${backupPath}`);
+    const total = count(documents);
+    console.log(
+      `  ${name.padEnd(12)} ${String(targets.length).padStart(5)} docs` +
+        ` (${total} avec les sous-collections)` +
+        `${kept > 0 ? `, ${kept} conservés` : ""} -> ${backupPath}`,
+    );
 
     if (!options.commit) continue;
 
-    for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
-      const batch = db.batch();
-      for (const doc of snap.docs.slice(i, i + BATCH_SIZE)) batch.delete(doc.ref);
-      await batch.commit();
-      const done = Math.min(i + BATCH_SIZE, snap.docs.length);
-      console.log(`    supprimés ${done} / ${snap.docs.length}`);
+    let done = 0;
+    for (const doc of targets) {
+      await db.recursiveDelete(doc.ref);
+      done++;
+      if (done % 25 === 0 || done === targets.length) {
+        console.log(`    supprimés ${done} / ${targets.length}`);
+      }
     }
   }
 

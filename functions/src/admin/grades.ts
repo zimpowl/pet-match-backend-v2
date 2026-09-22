@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { Timestamp, getFirestore } from "firebase-admin/firestore";
 import { StatsDoc } from "../models/user";
-import { computeGradeLevel, raiseGradeLevel } from "../core/grade";
+import { computeGradeLevel, raiseGrade } from "../core/grade";
+import { GradeDoc } from "../models/grade";
 
 /**
  * Relève les grades déjà acquis sur la nouvelle échelle (D123). Les seuils de
@@ -60,12 +61,17 @@ async function raise(
       verifiedField === "isVerified" ?
         doc.get(verifiedField) === true :
         doc.get(verifiedField) != null;
-    const level = raiseGradeLevel(held, computeGradeLevel(doc.get("stats") as StatsDoc, verified));
+    const grade = raiseGrade(
+      doc.get("grade") as GradeDoc | undefined,
+      computeGradeLevel(doc.get("stats") as StatsDoc, verified),
+      Timestamp.now(),
+    );
+    const level = grade.level;
     if (level === held) continue;
 
     raised++;
     console.log(`${collection}/${doc.id} : ${held} → ${level}`);
-    void writer?.update(doc.ref, { grade: { level } });
+    void writer?.update(doc.ref, { grade });
   }
 
   await writer?.close();

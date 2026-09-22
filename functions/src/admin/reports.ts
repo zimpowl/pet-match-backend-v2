@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase-admin/app";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
 import { ReportDoc } from "../models/report";
+import { contestOf } from "../collections";
 import { CONTEST_ZONE } from "../core/time";
 
 /**
@@ -9,14 +10,16 @@ import { CONTEST_ZONE } from "../core/time";
  *   npm run reports -- --project=X                             la file
  *   npm run reports -- --project=X --id=<id> --close --commit        vu, rien à faire
  *   npm run reports -- --project=X --id=<id> --takedown --commit     tout, d'un coup
- *   npm run reports -- --project=X --id=<id> --hide --commit         l'image se tait
+ *   npm run reports -- --project=X --id=<id> --hide --commit         l'image signalée se tait
+ *   npm run reports -- --project=X --id=<id> --show --commit         et elle reparaît
  *   npm run reports -- --project=X --id=<id> --withdraw --commit     hors des concours ouverts
  *   npm run reports -- --project=X --id=<id> --suspend=14 --commit   et le compte aussi
  *
  * `--hide` **ne supprime rien** : la photo reste en base, c'est la preuve du
  * signalement. Elle n'est simplement plus servie, et l'app affiche « photo
  * supprimée » à sa place — y compris sur les concours clos, qu'on ne réécrit
- * jamais.
+ * jamais. Seule **l'image signalée** se tait : les autres photos de l'animal,
+ * celles des inscriptions qu'il a changées, restent servies.
  *
  * `--withdraw` ne touche **que les concours non clos** : l'inscription y est
  * retirée, et le deuxième passe premier au prochain classement du soir. Un
@@ -35,6 +38,7 @@ interface Options {
   readonly id: string | null;
   readonly close: boolean;
   readonly hide: boolean;
+  readonly show: boolean;
   readonly withdraw: boolean;
   readonly suspendDays: number | null;
   readonly commit: boolean;
@@ -58,6 +62,7 @@ function parseOptions(argv: readonly string[]): Options {
     id: flag("id"),
     close: argv.includes("--close"),
     hide: argv.includes("--hide") || argv.includes("--takedown"),
+    show: argv.includes("--show"),
     withdraw: argv.includes("--withdraw") || argv.includes("--takedown"),
     suspendDays: days === null ? null : Number(days),
     commit: argv.includes("--commit"),
@@ -83,7 +88,10 @@ async function describe(db: Db, report: ReportDoc) {
   return {
     name: (report.target === "PET" ? snap.get("name") : judgeName) ?? "?",
     number: snap.get("number") ?? snap.get("judgeNumber") ?? "?",
-    photoUrl: (report.target === "PET" ? snap.get("photoUrl") : snap.get("avatarUrl")) ?? null,
+    photoUrl:
+      report.photoUrl ??
+      (report.target === "PET" ? snap.get("photoUrl") : snap.get("avatarUrl")) ??
+      null,
     ownerUid: report.target === "PET" ? snap.get("userUid") : snap.id,
   };
 }
@@ -113,39 +121,63 @@ async function list(db: Db, options: Options): Promise<void> {
 }
 
 /**
- * L'image se tait partout où elle a été recopiée — la fiche, chaque
- * participation, la place du juré. **Rien n'est effacé** : `hiddenAt` suffit à
- * ne plus la servir, et la photo reste là où elle est, parce que c'est elle qui
- * prouve le signalement.
+ * **L'image signalée**, et elle seule, se tait partout où elle a été recopiée.
+ * `hiddenAt` à `null` fait le geste inverse, et celui-là rend tout : on défait
+ * un masquage trop large sans avoir à deviner ce qu'il avait emporté.
+ * Un animal en porte plusieurs — celle de sa fiche, et une par inscription
+ * qu'il a pu changer : les taire toutes reviendrait à effacer le profil pour
+ * un seul signalement.
+ *
+ * **Rien n'est effacé** : `hiddenAt` suffit à ne plus la servir, et le fichier
+ * reste là où il est, parce que c'est lui qui prouve le signalement.
  */
-async function hide(db: Db, report: ReportDoc, commit: boolean): Promise<number> {
+async function hide(
+  db: Db,
+  report: ReportDoc,
+  hiddenAt: Timestamp | null,
+  commit: boolean,
+): Promise<number> {
+  const isPet = report.target === "PET";
+  const page = await db.collection(isPet ? "pets" : "users").doc(report.targetUid).get();
+  const field = isPet ? "photoUrl" : "avatarUrl";
+
+  // Les signalements d'avant ne disent pas quelle image : c'est celle de la
+  // fiche, la seule que la file savait montrer.
+  const image = report.photoUrl ?? page.get(field) ?? null;
+  if (hiddenAt !== null && image === null) return 0;
+
   const writer = commit ? db.bulkWriter() : null;
-  const hiddenAt = Timestamp.now();
   let touched = 0;
 
-  const mute = (ref: FirebaseFirestore.DocumentReference) => {
+  // Taire vise une image ; rendre les rend toutes. L'asymétrie est voulue :
+  // c'est ce qui permet de défaire un masquage trop large sans le rejouer.
+  const mute = (doc: FirebaseFirestore.DocumentSnapshot, shown: unknown) => {
+    const isHidden = doc.get("hiddenAt") != null;
+    if (hiddenAt === null ? !isHidden : shown !== image) return;
     touched++;
-    void writer?.update(ref, { hiddenAt });
+    void writer?.update(doc.ref, { hiddenAt });
   };
 
-  if (report.target === "PET") {
-    mute(db.collection("pets").doc(report.targetUid));
+  mute(page, page.get(field));
 
+  if (isPet) {
     const entries = await db
       .collectionGroup("participants")
       .where("petId", "==", report.targetUid)
       .orderBy("createdAt", "desc")
       .get();
-    for (const doc of entries.docs) mute(doc.ref);
+    for (const doc of entries.docs) {
+      if (contestOf(doc.ref)) mute(doc, doc.get("photoUrl"));
+    }
   } else {
-    mute(db.collection("users").doc(report.targetUid));
-
     const seats = await db
       .collectionGroup("judges")
       .where("userUid", "==", report.targetUid)
       .orderBy("joinedAt", "desc")
       .get();
-    for (const doc of seats.docs) mute(doc.ref);
+    for (const doc of seats.docs) {
+      if (contestOf(doc.ref)) mute(doc, doc.get("userAvatarUrl"));
+    }
   }
 
   await writer?.close();
@@ -167,7 +199,7 @@ async function withdraw(db: Db, petUid: string, commit: boolean): Promise<string
   const pulled: string[] = [];
 
   for (const doc of entries.docs) {
-    const contestRef = doc.ref.parent.parent;
+    const contestRef = contestOf(doc.ref);
     if (!contestRef) continue;
 
     const contest = await contestRef.get();
@@ -205,8 +237,13 @@ async function act(db: Db, options: Options): Promise<void> {
   console.log(`image : ${about.photoUrl ?? "(aucune)"}\n`);
 
   if (options.hide) {
-    const touched = await hide(db, report, options.commit);
+    const touched = await hide(db, report, Timestamp.now(), options.commit);
     console.log(`image tue sur ${touched} document(s) — le fichier reste`);
+  }
+
+  if (options.show) {
+    const touched = await hide(db, report, null, options.commit);
+    console.log(`image rendue sur ${touched} document(s)`);
   }
 
   if (options.withdraw) {
@@ -249,9 +286,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!options.close && !options.hide && !options.withdraw && options.suspendDays === null) {
+  const gestures =
+    options.close || options.hide || options.show || options.withdraw;
+  if (!gestures && options.suspendDays === null) {
     throw new Error(
-      "--id demande un geste : --close, --hide, --withdraw, --suspend=<jours> ou --takedown",
+      "--id demande un geste : --close, --hide, --show, --withdraw, --suspend=<jours> " +
+        "ou --takedown",
     );
   }
 

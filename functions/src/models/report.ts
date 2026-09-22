@@ -12,6 +12,12 @@ export interface ReportDoc {
   reporterUid: string;
   target: ReportTarget;
   targetUid: string;
+  /**
+   * L'image telle qu'elle était affichée. Un animal en porte plusieurs — celle
+   * de sa fiche, et une par inscription qu'il a pu changer — et le geste de
+   * modération ne doit taire que celle-là.
+   */
+  photoUrl: string | null;
   status: "OPEN" | "CLOSED";
   createdAt: firestore.Timestamp;
   reviewedAt: firestore.Timestamp | null;

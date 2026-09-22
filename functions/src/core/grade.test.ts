@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_GRADE, computeGradeLevel, medalCount, raiseGradeLevel } from "./grade";
+import { Timestamp } from "firebase-admin/firestore";
+import { MAX_GRADE, computeGradeLevel, medalCount, raiseGrade, raiseGradeLevel } from "./grade";
 import { StatsDoc } from "../models/user";
 
 const stats = (over: Partial<StatsDoc> = {}): StatsDoc => ({
@@ -53,4 +54,44 @@ test("un niveau ne redescend jamais (D30)", () => {
   assert.equal(raiseGradeLevel(5, 2), 5);
   assert.equal(raiseGradeLevel(2, 5), 5);
   assert.equal(raiseGradeLevel(undefined, 3), 3);
+});
+
+const at = (millis: number) => Timestamp.fromMillis(millis);
+
+test("monter de plusieurs crans d'un coup date chacun d'eux", () => {
+  // Vingt médailles dont cinq or sur un profil confirmé : on passe de 0 à 6,
+  // et les six crans traversés portent chacun leur date.
+  const grade = raiseGrade(
+    { level: 0 },
+    computeGradeLevel(stats({ gold: 5, silver: 8, bronze: 7 }), true),
+    at(1_000),
+  );
+
+  assert.equal(grade.level, MAX_GRADE);
+  assert.deepEqual(Object.keys(grade.reachedAt ?? {}).sort(), ["1", "2", "3", "4", "5", "6"]);
+  for (const reached of Object.values(grade.reachedAt ?? {})) {
+    assert.equal(reached.toMillis(), 1_000);
+  }
+});
+
+test("une date déjà écrite ne bouge plus, et les nouveaux crans prennent la leur", () => {
+  const first = raiseGrade({ level: 0 }, 2, at(1_000));
+  const second = raiseGrade(first, 4, at(2_000));
+
+  assert.equal(second.reachedAt?.["1"]?.toMillis(), 1_000);
+  assert.equal(second.reachedAt?.["2"]?.toMillis(), 1_000);
+  assert.equal(second.reachedAt?.["3"]?.toMillis(), 2_000);
+  assert.equal(second.reachedAt?.["4"]?.toMillis(), 2_000);
+});
+
+test("un niveau ne redescend pas, et redescendre n'efface aucune date", () => {
+  const held = raiseGrade({ level: 0 }, 4, at(1_000));
+  const after = raiseGrade(held, 1, at(2_000));
+
+  assert.equal(after.level, 4);
+  assert.deepEqual(Object.keys(after.reachedAt ?? {}).sort(), ["1", "2", "3", "4"]);
+});
+
+test("l'échelle ne se saute pas : vingt médailles sans identité confirmée valent zéro", () => {
+  assert.equal(computeGradeLevel(stats({ gold: 5, silver: 8, bronze: 7 }), false), 0);
 });

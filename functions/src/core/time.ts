@@ -45,3 +45,16 @@ export function atContestHour(millis: number): number {
 
   return naive - zoneOffset(naive - shift);
 }
+
+/** Une date en toutes lettres, dans le fuseau du jeu : « 4 octobre 2026 ». */
+export function longDateText(value: Millis | null | undefined): string {
+  const millis = toMillis(value);
+  if (millis === null) return "";
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: CONTEST_ZONE,
+  }).format(new Date(millis));
+}

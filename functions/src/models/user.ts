@@ -1,3 +1,4 @@
+import { GradeDoc } from "./grade";
 import { firestore } from "firebase-admin";
 
 export interface StatsDoc {
@@ -34,14 +35,14 @@ export interface UserDoc {
    * jamais (D30), et le recalculer le ferait baisser si la vérification
    * tombait. Relevé par la clôture, jamais baissé.
    */
-  grade: { level: number };
+  grade: GradeDoc;
   /**
    * Ce que le joueur accepte de recevoir. Absent vaut **oui** : personne n'a
    * rien coupé, et un défaut à `false` rendrait muet tout le parc migré.
    * Deux interrupteurs seulement, parce qu'il n'y a que deux canaux (§ notify) :
    * le résultat du soir, et le rappel de l'après-midi.
    */
-  notifications: { results: boolean; reminders: boolean } | null;
+  notifications: { results: boolean; reminders: boolean; email: boolean } | null;
   /**
    * Compte fermé. Rien n'est effacé : les concours joués gardent le nom et la
    * photo qui les ont signés, et les votes restent comptés — les retirer

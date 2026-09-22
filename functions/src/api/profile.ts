@@ -183,7 +183,7 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
         throw badRequest("notifications doit être un objet");
       }
       const source2 = toggles as Record<string, unknown>;
-      for (const key of ["results", "reminders"] as const) {
+      for (const key of ["results", "reminders", "email"] as const) {
         const raw = source2[key];
         if (raw !== undefined && typeof raw !== "boolean") {
           throw badRequest(`notifications.${key} doit être un booléen`);
@@ -191,6 +191,7 @@ export const updateProfileHttp = onRequest({ cors: true }, (req, res) =>
       }
       patch["notifications.results"] = source2.results !== false;
       patch["notifications.reminders"] = source2.reminders !== false;
+      patch["notifications.email"] = source2.email !== false;
     }
 
     if (Object.keys(patch).length === 0) throw badRequest("aucun champ à mettre à jour");

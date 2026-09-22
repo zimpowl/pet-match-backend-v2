@@ -1,6 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { Timestamp } from "firebase-admin/firestore";
-import { PETS, USERS, db } from "../firebase";
+import { PETS, USERS, VERIFICATIONS, app, db } from "../firebase";
+import { DOCUMENTS, bucketOf } from "../storage";
 import { PetDoc } from "../models/pet";
 import { JsonResponse, Query, badRequest, notFound, requiredField, respond } from "../http/respond";
 import { callerUid } from "../http/identity";
@@ -11,6 +12,10 @@ import { callerUid } from "../http/identity";
  * vivante — pseudo, avatar, jeton de notification — et le profil retombe alors
  * sous la porte du premier lancement : `needsProfile` est vrai, donc revenir
  * veut dire recommencer, pas retrouver.
+ *
+ * Les **pièces d'identité**, elles, partent pour de bon. Elles sont conservées
+ * cinq ans parce qu'elles justifient une confirmation ; elles ne justifient
+ * plus rien quand le compte n'existe plus.
  */
 export const deleteAccountHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async () => {
@@ -29,9 +34,25 @@ export const deleteAccountHttp = onRequest({ cors: true }, (req, res) =>
       fcmToken: null,
     });
 
+    await dropDocuments(userUid);
+
     return { userUid };
   }),
 );
+
+/**
+ * Le préfixe d'abord — il emporte aussi ce qu'aucune demande ne référence —
+ * puis les demandes elles-mêmes, qui ne montrent plus un fichier disparu.
+ */
+async function dropDocuments(userUid: string): Promise<void> {
+  const bucket = await bucketOf(app, process.env.GCLOUD_PROJECT ?? "");
+  await bucket.deleteFiles({ prefix: `${DOCUMENTS}/${userUid}/`, force: true });
+
+  const requests = await db.collection(VERIFICATIONS).where("userUid", "==", userUid).get();
+  const batch = db.batch();
+  for (const doc of requests.docs) batch.update(doc.ref, { files: [] });
+  await batch.commit();
+}
 
 /**
  * Un animal retiré quitte l'étagère et la recherche, mais pas les concours où

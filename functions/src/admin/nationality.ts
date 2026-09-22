@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { contestOf } from "../collections";
 
 /**
  * Donne la nationalité française aux jurés et aux animaux qui n'en ont pas. Le
@@ -92,7 +93,9 @@ async function stampContestRows(
 
   for (const source of sources) {
     const snap = await db.collectionGroup(source.group).get();
-    const stale = snap.docs.filter((doc) => doc.get("countryCode") == null);
+    const stale = snap.docs.filter(
+      (doc) => contestOf(doc.ref) !== null && doc.get("countryCode") == null,
+    );
 
     if (options.commit) {
       const writer = db.bulkWriter();

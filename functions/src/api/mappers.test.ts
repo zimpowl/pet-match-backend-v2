@@ -281,6 +281,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     number: 12,
     name: "Zimpo",
     avatarUrl: null,
+    photoRemoved: false,
     countryCode: "FR",
     judgeSince: START,
     votes: 33,

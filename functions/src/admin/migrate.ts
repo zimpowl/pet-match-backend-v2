@@ -64,6 +64,15 @@ import {
 const BATCH_SIZE = 400;
 
 /**
+ * Le cran zéro date de la naissance du dossier : c'est la seule date que le
+ * legacy permette de reconstituer. Les crans suivants n'ont jamais été
+ * enregistrés, et tout le monde sort à zéro faute de vérification (D42).
+ */
+function bornGrade(stats: StatsDoc, bornAt: Timestamp) {
+  return { level: computeGradeLevel(stats, false), reachedAt: { "0": bornAt } };
+}
+
+/**
  * Le legacy ne demandait pas la nationalité et l'app s'est jouée en France.
  * La supposer vaut mieux que de laisser un drapeau vide sur toutes les slabs
  * reprises ; qui vient d'ailleurs la corrigera sur sa fiche.
@@ -584,7 +593,10 @@ async function main(): Promise<void> {
       verifiedAt: null,
       hiddenAt: null,
       deletedAt: null,
-      grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
+      grade: bornGrade(
+        statsFromRanks(petRanks.get(petId) ?? []),
+        Timestamp.fromMillis(millis(created.source.createdAt, Date.now())),
+      ),
       stats: statsFromRanks(petRanks.get(petId) ?? []),
     };
     writes.push({ path: `pets/${petId}`, data: pet, merge: false });
@@ -615,7 +627,10 @@ async function main(): Promise<void> {
         verifiedAt: null,
         hiddenAt: null,
         deletedAt: null,
-        grade: { level: computeGradeLevel(statsFromRanks(petRanks.get(petId) ?? []), false) },
+        grade: bornGrade(
+          statsFromRanks(petRanks.get(petId) ?? []),
+          Timestamp.fromMillis(millis(pet.createdAt, 0)),
+        ),
         stats: statsFromRanks(petRanks.get(petId) ?? []),
       },
       merge: true,
@@ -659,7 +674,7 @@ async function main(): Promise<void> {
       rulesSignedAt: null,
       suspendedUntil: null,
       hiddenAt: null,
-      grade: { level: computeGradeLevel(stats, false) },
+      grade: bornGrade(stats, Timestamp.fromMillis(millis(user.createdAt, 0))),
       judgeNumber: judgedAt === undefined ? null : judgeNumbers.get(userUid) ?? null,
       judgeSince: judgedAt === undefined ? null : Timestamp.fromMillis(judgedAt),
       stats,

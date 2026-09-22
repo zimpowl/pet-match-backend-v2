@@ -1,3 +1,5 @@
+import { firestore } from "firebase-admin";
+import { GradeDoc } from "../models/grade";
 import { StatsDoc } from "../models/user";
 
 /**
@@ -27,6 +29,21 @@ import { StatsDoc } from "../models/user";
  */
 
 export const MAX_GRADE = 6;
+
+/** Les sept crans, dans l'ordre. Le client tient la même liste (`GradeLadder`). */
+export const GRADE_NAMES: readonly string[] = [
+  "Novice",
+  "Confirmé",
+  "Amateur",
+  "Aguerri",
+  "Expert",
+  "Maître",
+  "Légende",
+];
+
+export function gradeName(level: number): string {
+  return GRADE_NAMES[level] ?? GRADE_NAMES[GRADE_NAMES.length - 1];
+}
 
 interface Step {
   readonly level: number;
@@ -83,4 +100,25 @@ export function computeGradeLevel(
  */
 export function raiseGradeLevel(current: number | undefined, computed: number): number {
   return Math.max(current ?? 0, computed);
+}
+
+/**
+ * Le grade relevé, avec une date posée sur **chaque cran franchi** — on peut
+ * en franchir plusieurs d'un coup, le premier podium d'un profil vérifié vaut
+ * deux crans. Une date déjà écrite ne bouge pas.
+ */
+export function raiseGrade(
+  current: GradeDoc | undefined,
+  computed: number,
+  now: firestore.Timestamp,
+): GradeDoc {
+  const held = current?.level ?? 0;
+  const level = Math.max(held, computed);
+  const reachedAt = { ...(current?.reachedAt ?? {}) };
+
+  for (let step = held + 1; step <= level; step++) {
+    reachedAt[String(step)] ??= now;
+  }
+
+  return { level, reachedAt };
 }

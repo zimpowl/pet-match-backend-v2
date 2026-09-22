@@ -40,6 +40,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         notifications: {
           results: user.notifications?.results ?? true,
           reminders: user.notifications?.reminders ?? true,
+          email: user.notifications?.email ?? true,
         },
       };
     }
@@ -47,6 +48,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     // Un joueur sans animal a un profil de juré parfaitement normal (§4.8) :
     // on ne lui demande rien de plus que d'exister. Le nom et l'avatar
     // arriveront de l'écran d'accueil du profil.
+    const bornAt = Timestamp.now();
     const created: UserDoc = {
       name: "",
       nickname: null,
@@ -54,12 +56,12 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       avatarUrl: null,
       description: null,
       countryCode: null,
-      createdAt: Timestamp.now(),
+      createdAt: bornAt,
       fcmToken: null,
       isVerified: false,
       locale: null,
-      grade: { level: 0 },
-      notifications: null,
+      grade: { level: 0, reachedAt: { "0": bornAt } },
+      notifications: { results: true, reminders: true, email: true },
       rulesSignedAt: null,
       suspendedUntil: null,
       hiddenAt: null,
@@ -79,7 +81,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       suspendedUntil: null,
       hiddenAt: null,
       needsProfile: true,
-      notifications: { results: true, reminders: true },
+      notifications: { results: true, reminders: true, email: true },
     };
   }),
 );

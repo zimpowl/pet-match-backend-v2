@@ -24,7 +24,8 @@ import { compareJudges, compareParticipants, rank as ranked } from "../core/rank
 import { CountedVote, judgeResults, medalFromRank } from "../core/results";
 import { atContestHour, toMillisOrZero } from "../core/time";
 import { StatsDoc } from "../models/user";
-import { computeGradeLevel, raiseGradeLevel } from "../core/grade";
+import { computeGradeLevel, raiseGrade } from "../core/grade";
+import { GradeDoc } from "../models/grade";
 import {
   ContestDoc,
   ContestJudgeDoc,
@@ -370,7 +371,7 @@ async function close(
     const stats = nextStats(snap.data()?.stats, rankValue);
     writes.set(
       snap.ref,
-      { stats, grade: { level: nextGrade(snap.data(), stats, snap.get("verifiedAt") != null) } },
+      { stats, grade: nextGrade(snap.data(), stats, snap.get("verifiedAt") != null) },
       true,
     );
     // Le même agrégat sert d'instantané d'époque (D90) : « ce concours inclus »
@@ -388,7 +389,7 @@ async function close(
       snap.ref,
       {
         stats,
-        grade: { level: nextGrade(snap.data(), stats, snap.get("isVerified") === true) },
+        grade: nextGrade(snap.data(), stats, snap.get("isVerified") === true),
         totals: { correctVotes: (totals.correctVotes ?? 0) + gained },
       },
       true,
@@ -459,9 +460,12 @@ function nextGrade(
   current: FirebaseFirestore.DocumentData | undefined,
   stats: StatsDoc,
   verified: boolean,
-): number {
-  const held = (current?.grade as { level?: number } | undefined)?.level;
-  return raiseGradeLevel(held, computeGradeLevel(stats, verified));
+): GradeDoc {
+  return raiseGrade(
+    current?.grade as GradeDoc | undefined,
+    computeGradeLevel(stats, verified),
+    Timestamp.now(),
+  );
 }
 
 function rankParticipants(

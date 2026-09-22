@@ -62,7 +62,7 @@ export const createPetHttp = onRequest({ cors: true }, (req, res) =>
         verifiedAt: null,
         hiddenAt: null,
         deletedAt: null,
-        grade: { level: 0 },
+        grade: { level: 0, reachedAt: { "0": Timestamp.fromMillis(now) } },
         stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
       };
 

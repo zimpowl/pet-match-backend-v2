@@ -1,4 +1,4 @@
-import { JUDGES, PARTICIPANTS, PETS, USERS, db } from "../firebase";
+import { JUDGES, PARTICIPANTS, PETS, USERS, contestOf, db } from "../firebase";
 import { ContestJudgeDoc, ContestParticipantDoc } from "../models/contest";
 import { PetDoc } from "../models/pet";
 import { UserDoc } from "../models/user";
@@ -53,7 +53,7 @@ export async function loadJudgedContests(userUid: string): Promise<JudgedContest
     .get();
 
   return snap.docs.flatMap((doc) => {
-    const contestUid = doc.ref.parent.parent?.id;
+    const contestUid = contestOf(doc.ref)?.id;
     return contestUid ? [{ contestUid, judge: doc.data() as ContestJudgeDoc }] : [];
   });
 }
@@ -67,7 +67,7 @@ export async function loadParticipations(petUid: string): Promise<Participation[
     .get();
 
   return snap.docs.flatMap((doc) => {
-    const contestUid = doc.ref.parent.parent?.id;
+    const contestUid = contestOf(doc.ref)?.id;
     return contestUid ? [{ contestUid, participant: doc.data() as ContestParticipantDoc }] : [];
   });
 }

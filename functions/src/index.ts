@@ -23,3 +23,6 @@ export * from "./api/report";
 
 // L4 — cycle de vie : 18 h est la seule horloge du jeu.
 export * from "./triggers/lifecycle";
+
+// La confirmation d'identité relève le grade sans attendre 18 h.
+export * from "./triggers/account";

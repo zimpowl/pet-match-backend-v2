@@ -5,3 +5,9 @@ functions/lib/
 *.log
 lib-test/
 functions/backup/
+
+# Les pièces d'identité récupérées par `npm run verifications -- --download`.
+pieces/
+
+# Configuration locale de l'agent : elle porte des chemins absolus.
+.claude/

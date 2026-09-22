@@ -217,3 +217,92 @@ export function shouldRemind(input: {
   if (input.dailyCapacity <= 0) return false;
   return input.votesCast < input.maxVotesPerJudge;
 }
+
+/**
+ * Les nouvelles **personnelles** : ce qui arrive au dossier d'un joueur, et
+ * qu'aucun écran ne lui apprendra s'il n'ouvre pas l'app. Elles ne parlent
+ * jamais d'un concours, donc elles ne relèvent pas du rendez-vous de 18 h et
+ * ne se taisent pas quand on coupe les résultats.
+ *
+ * Même registre que le reste : on constate, on ne félicite pas. Un grade se
+ * dit comme un fait, pas comme un trophée.
+ */
+export interface GradeNews {
+  readonly level: number;
+  readonly name: string;
+  readonly petName: string | null;
+}
+
+export interface ModerationNews {
+  readonly petName: string | null;
+}
+
+export interface SuspensionNews {
+  readonly untilText: string;
+}
+
+export interface VerificationNews {
+  readonly accepted: boolean;
+  readonly reason: string | null;
+  readonly petName: string | null;
+}
+
+export function composeGrade(news: GradeNews, locale: Locale): Notification {
+  void locale;
+  const who = news.petName ?? "Vous";
+  const verb = news.petName ? "atteint" : "atteignez";
+
+  return {
+    title: `Grade ${news.level} · ${news.name}`,
+    body: `${who} ${verb} le grade ${news.level}. Le dossier en garde la date.`,
+  };
+}
+
+/**
+ * La photo reste, elle n'est plus servie (D134). On dit ce qui est fait et
+ * pourquoi c'est possible — la charte —, sans accuser ni s'excuser.
+ */
+export function composeHidden(news: ModerationNews, locale: Locale): Notification {
+  void locale;
+  const subject = news.petName ? `La photo de ${news.petName}` : "Votre photo de profil";
+
+  return {
+    title: "Une photo a été retirée",
+    body: `${subject} ne s'affiche plus. Elle ne respectait pas la charte de publication.`,
+  };
+}
+
+/**
+ * Le compte garde tout et ne peut plus agir jusqu'à la date (D133). La date
+ * est le seul chiffre utile : sans elle, la suspension paraît définitive.
+ */
+export function composeSuspension(news: SuspensionNews, locale: Locale): Notification {
+  void locale;
+  return {
+    title: "Votre compte est suspendu",
+    body:
+      `Vous pouvez tout consulter jusqu'au ${news.untilText}.` +
+      " Voter, vous inscrire et publier attendront.",
+  };
+}
+
+/**
+ * Le dépôt d'une pièce n'a aucun écho aujourd'hui : on la dépose et on attend
+ * sans jamais rien savoir. C'est la nouvelle la plus attendue des quatre.
+ */
+export function composeVerification(news: VerificationNews, locale: Locale): Notification {
+  void locale;
+  const subject = news.petName ?? "Votre identité";
+
+  if (news.accepted) {
+    return {
+      title: "Identité confirmée",
+      body: `${subject} est confirmée. Le grade 1 s'ouvre.`,
+    };
+  }
+
+  return {
+    title: "Pièce refusée",
+    body: news.reason ?? "La pièce déposée n'a pas pu être lue. Vous pouvez en déposer une autre.",
+  };
+}

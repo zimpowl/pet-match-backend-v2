@@ -17,6 +17,11 @@ const PODIUM = 3;
  * Les places ne sont pas stockées sur le concours : on relit les trois premiers
  * participants. Trois requêtes par concours clos, sur un écran qu'on ouvre
  * rarement.
+ *
+ * C'est la **seule route sans authentification** : ce qu'elle rend est publié
+ * sur le site, lisible sans compte. Une photo tue par la modération n'y entre
+ * donc pas du tout — ailleurs on la remplace par « photo supprimée », ici la
+ * vitrine se contente de ne pas la montrer.
  */
 export const getPodiumsHttp = onRequest({ cors: true }, (_req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<PodiumsResponse> => {
@@ -40,6 +45,7 @@ export const getPodiumsHttp = onRequest({ cors: true }, (_req, res) =>
           const participant = doc.data() as ContestParticipantDoc;
           const rank = participant.rank;
           if (rank === null || rank > PODIUM) return [];
+          if (participant.hiddenAt != null) return [];
 
           return [
             {

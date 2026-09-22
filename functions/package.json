@@ -19,7 +19,9 @@
     "nationality": "tsc && node lib/admin/nationality.js",
     "schedule": "tsc && node lib/admin/schedule.js",
     "grades": "tsc && node lib/admin/grades.js",
-    "reports": "tsc && node lib/admin/reports.js"
+    "reports": "tsc && node lib/admin/reports.js",
+    "verifications": "tsc && node lib/admin/verifications.js",
+    "retention": "tsc && node lib/admin/retention.js"
   },
   "engines": {
     "node": "24"

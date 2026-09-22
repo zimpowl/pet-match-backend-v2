@@ -9,7 +9,8 @@ export type VerificationStatus = "NONE" | "PENDING" | "REJECTED" | "VERIFIED";
  * Une pièce déposée. On ne garde que le **chemin** dans le bucket, jamais une
  * URL de téléchargement : une carte d'identité n'est pas une photo de chien, et
  * une URL signée qui traîne dans un document est une fuite qui attend son tour.
- * La revue est humaine (D42), et la pièce s'efface à la décision (D126).
+ * La revue est humaine (D42), et la pièce **reste** après la décision : c'est
+ * la trace de ce qui a été confirmé.
  */
 export interface VerificationFileDoc {
   path: string;
