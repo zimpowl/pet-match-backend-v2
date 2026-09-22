@@ -32,7 +32,11 @@ Dans les réglages de l'app, et stockés dans `users/{uid}.notifications` :
 
 - **Résultats du soir** — coupe le classement de 18 h et la clôture.
 - **Rappel de vote** — coupe le mot de 15 h.
-- **Recevoir un mail** — coupe le **courrier** des nouvelles du dossier.
+- **Recevoir un mail** — coupe le **courrier** des nouvelles du dossier. Ce
+  réglage **n'est pas affiché** tant que l'extension de courrier n'est pas
+  installée : il ne servirait qu'à couper ce que personne ne reçoit. Le champ
+  `notifications.email` existe et vaut oui ; remettre la ligne dans
+  `SettingsPresenter` suffira.
 
 Les nouvelles du dossier **partent toujours en notification**, quels que soient
 les deux premiers interrupteurs. On ne choisit pas d'ignorer qu'une photo a été
@@ -160,7 +164,8 @@ npx firebase functions:log --only onUserChanged --project pet-match---debug
 
 Rien n'envoie de mail aujourd'hui. Le code **met en file** : il écrit un
 document dans la collection `mail`, au format attendu par l'extension Firebase
-**Trigger Email from Firestore**.
+**Trigger Email from Firestore**. Les documents s'empilent sans partir, et
+c'est sans conséquence — l'extension installée, l'arriéré part avec le reste.
 
 À installer une fois, par projet :
 
