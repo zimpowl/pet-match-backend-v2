@@ -11,6 +11,10 @@ export * from "./api/close";
 export * from "./api/podiums";
 export * from "./api/verify";
 
+// La porte de version : sans jeton, parce qu'une app bloquée peut ne plus
+// savoir en présenter un.
+export * from "./api/config";
+
 // L3 — écritures.
 export * from "./api/join";
 export * from "./api/entry";

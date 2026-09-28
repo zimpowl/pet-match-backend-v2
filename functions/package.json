@@ -13,6 +13,7 @@
     "seed": "tsc && node lib/admin/seed.js",
     "migrate": "tsc && node lib/admin/migrate.js",
     "cleanup": "tsc && node lib/admin/cleanup.js",
+    "gate": "tsc && node lib/admin/gate.js",
     "backup": "tsc && node lib/admin/backup.js",
     "tokens": "tsc && node lib/admin/tokens.js",
     "nationality": "tsc && node lib/admin/nationality.js",

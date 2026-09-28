@@ -15,6 +15,14 @@ export const VERIFICATIONS = "verifications";
 export const REPORTS = "reports";
 
 /**
+ * La configuration du service, en un document. Protégée par le nettoyage, et
+ * volontairement hors du code : la porte de version se rouvre par une écriture,
+ * pas par un déploiement.
+ */
+export const CONFIGURATION = "configuration";
+export const VERSION = "version";
+
+/**
  * Le concours d'un document de sous-collection, ou null s'il n'en vient pas.
  *
  * Un `collectionGroup` ne connaît pas son parent : `judges` et `participants`
