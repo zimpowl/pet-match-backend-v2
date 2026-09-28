@@ -29,9 +29,18 @@ before(async () => {
     });
 });
 
-async function get(query = ""): Promise<{ status: number; headers: Headers; body: any }> {
+/** Les deux plateformes sont toujours là ; seul le verdict est conditionnel. */
+interface GateBody {
+  readonly android: { minimumCode: number; latestCode: number };
+  readonly ios: { minimumCode: number; latestCode: number };
+  readonly updateRequired?: boolean;
+}
+
+async function get(query = ""): Promise<{ status: number; headers: Headers; body: GateBody }> {
   const response = await fetch(`${BASE}${query}`);
-  return { status: response.status, headers: response.headers, body: await response.json() };
+  const body = (await response.json()) as GateBody;
+
+  return { status: response.status, headers: response.headers, body };
 }
 
 test("la porte répond sans le moindre jeton", async () => {

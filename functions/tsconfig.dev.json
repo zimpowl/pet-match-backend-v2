@@ -1,5 +1,9 @@
 {
+  "extends": "./tsconfig.json",
   "include": [
-    ".eslintrc.js"
-  ]
+    ".eslintrc.js",
+    "src"
+  ],
+  "comment": "ESLint analyse tout, y compris les tests que tsconfig.json exclut du déploiement. Sans ce projet, il ne sait plus les lire et refuse de les analyser.",
+  "exclude": []
 }
