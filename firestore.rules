@@ -1,0 +1,25 @@
+rules_version = '2';
+
+/**
+ * Aucun client ne lit ni n'écrit Firestore directement.
+ *
+ * Ni l'app Android ni l'app iOS ne lient le SDK Firestore — `firebase-firestore`
+ * figure au catalogue de versions mais aucun module n'en dépend, et les produits
+ * SPM d'iOS se limitent à Auth, Messaging, Storage et Core. Le site vitrine ne
+ * dépend d'aucun SDK Firebase : il appelle `getPodiumsHttp` en HTTP.
+ *
+ * Tout passe donc par les Cloud Functions, qui utilisent le SDK Admin — lequel
+ * ne consulte jamais ces règles. Refuser tout n'est pas une restriction, c'est
+ * la description exacte du trafic légitime.
+ *
+ * La seule façon d'avoir besoin d'assouplir ce fichier serait d'ajouter une
+ * dépendance Firestore à un client : ce serait une décision d'architecture, pas
+ * un correctif de règle.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
