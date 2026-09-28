@@ -155,7 +155,63 @@ Les journaux :
 npx firebase functions:log --only onUserChanged --project pet-match---debug
 ```
 
-## 5. Basculer en production
+## 5. Répéter la migration sur dev
+
+Le projet de dev est **`pet-match---debug`**. La migration y est **rejouable
+autant de fois qu'on veut** : elle lit `challenges`, écrit dans `contests` avec
+des identifiants déterministes, et réécrit par-dessus au passage suivant. C'est
+ici qu'on répète — la production ne se répète pas.
+
+```bash
+cd functions
+
+# à blanc : lit tout, n'écrit rien
+npm run migrate -- --project=pet-match---debug
+
+# pour de vrai
+npm run migrate -- --project=pet-match---debug --commit
+```
+
+Le passage à blanc est ce qu'on lit **avant** de poser. Il imprime ce qu'il a
+trouvé et ce qu'il compte écrire, et il **refuse d'écrire** si un identifiant de
+`challenges` entre en collision avec un vestige v0 de `contests`.
+
+Deux lignes du rapport méritent un regard :
+
+- **`animaux à créer (espèce inconnue, rangés en DOG)`** — un participant legacy
+  dont l'animal n'a pas pu être retrouvé par son nom sous son propriétaire. La
+  migration en fabrique un, forcément chien. Un compte de plus ici veut dire un
+  animal fantôme de plus en base.
+- **`seenPairs non remappables`** — des paires de duels dont un des deux animaux
+  n'existe plus. Sans conséquence : elles servaient à éviter de re-présenter un
+  duel déjà vu, et le concours est clos.
+
+### Ce qu'on vérifie après
+
+```bash
+# les concours migrés existent et portent un numéro : ce sont les « conservés »
+npm run cleanup -- --project=pet-match---debug --targets=contests-v0 --out=/tmp/verif
+
+# l'app les verrait — l'endpoint réclame un userUid, le repli debug l'accepte sans jeton
+curl -s "https://us-central1-pet-match---debug.cloudfunctions.net/getContestsHttp?userUid=<uid>"
+```
+
+Le `--out` n'est pas un détail : sans lui, une simple simulation **écrase**
+`functions/backup/` — la sauvegarde s'écrit même en `--dry-run`.
+
+### Les vestiges v0 cohabitent
+
+`contests` porte deux générations : les concours migrés, qui ont un `number`, et
+les documents de la v0, qui n'en ont pas. Les seconds restent visibles en base
+tant qu'on ne passe pas `--targets=contests-v0`. La migration s'en accommode —
+elle les détecte et refuse seulement en cas de collision d'identifiant.
+
+### Repartir de zéro
+
+Un redéploiement du projet de debug efface les données v2. Il faut alors
+**rejouer la migration**, sinon l'app s'ouvre sans un seul concours.
+
+## 6. Basculer en production
 
 Le projet de production est **`pet-match-30417`**. Rien n'y a encore été
 déployé : tout ce qui suit a été éprouvé sur `pet-match---debug` et n'a jamais
@@ -198,31 +254,72 @@ que sur un projet de debug.
 
 ### L'ordre
 
+> **Élargir les gardes d'abord.** Tant que ce n'est pas fait, chacune des
+> commandes `npm run` ci-dessous est **refusée** : `pet-match-30417` ne contient
+> pas « debug ». Voir la section précédente.
+
 ```bash
 cd functions
+export PROD=pet-match-30417
 
-# 1. le code et les index
-npx firebase deploy --only functions --project pet-match-30417
-npx firebase deploy --only firestore:indexes --project pet-match-30417
+# 1. la sauvegarde, avant tout le reste
+npm run backup -- --project=$PROD --collection=challenges,pets,users,contests,configuration
+#    vérifier que les fichiers ne sont pas vides avant de continuer
 
-# 2. la sauvegarde, avant tout
-npm run retention -- --project=pet-match-30417 --commit
-npm run backup -- --project=pet-match-30417 --collection=challenges,pets,users
+# 2. les règles et les index — SANS --force
+npx firebase deploy --only firestore:rules --project $PROD
+npx firebase deploy --only firestore:indexes --project $PROD
+#    répondre NON à toute suppression : les index du legacy servent encore
+#    attendre qu'ils soient READY, pas BUILDING, avant l'étape 4
 
 # 3. la migration, à blanc puis pour de vrai
-npm run migrate -- --project=pet-match-30417
-npm run migrate -- --project=pet-match-30417 --commit
+npm run migrate -- --project=$PROD
+npm run migrate -- --project=$PROD --commit
 
-# 4. vérifier l'app de bout en bout, sur la variante prodEnv
+# 4. le code — POINT DE NON-RETOUR
+npx firebase deploy --only functions --project $PROD
+#    en interactif : lire la liste de suppression avant de confirmer
+#    jamais --force, jamais --only functions:<nom> (un filtre annule les suppressions)
 
-# 5. seulement si l'ancienne app est éteinte
-npm run cleanup -- --project=pet-match-30417 \
-  --targets=contests-v0,legacy,instagram,mail --commit
+# 5. seconde passe de migration
+npm run migrate -- --project=$PROD --commit
+#    le legacy a continué d'écrire entre 3 et 4 : c'est cette passe qui rattrape
+
+# 6. la rétention des pièces d'identité
+npm run retention -- --project=$PROD --commit
+
+# 7. vérifier l'app de bout en bout, sur la variante prodEnv
+
+# 8. seulement après vérification
+npm run cleanup -- --project=$PROD --targets=contests-v0,legacy,instagram,mail
+npm run cleanup -- --project=$PROD --targets=contests-v0,legacy,instagram,mail --commit
+
+# 9. les index morts, maintenant que plus rien ne les lit
+npx firebase deploy --only firestore:indexes --project $PROD --force
+
+# 10. remettre les gardes, et redéployer — deux d'entre elles vivent dans le code
 ```
 
-La migration est **rejouable** : elle lit `challenges` et réécrit par-dessus.
-Le nettoyage, non — il supprime la source. C'est pour ça qu'il est dernier, et
-qu'il sauvegarde avant de supprimer.
+**Pourquoi le code après les données.** Déployer les fonctions v2 **supprime**
+les fonctions legacy du projet : elles ne sont plus dans les sources, et le CLI
+propose de retirer tout ce qui n'y est pas. L'ancien backend s'arrête donc à
+l'étape 4. Le faire avant la migration reviendrait à couper la source pendant
+qu'on la lit.
+
+Deux noms survivent à cette suppression parce qu'ils existent des deux côtés :
+`getOrCreateHttp` et `createPetHttp` sont **écrasés**, pas retirés. L'ancienne
+app y trouvera un handler v2 qui réclame un jeton qu'elle n'envoie pas, et
+prendra un 403 plutôt qu'un 404. C'est le comportement voulu, mais autant le
+savoir en lisant les logs.
+
+**Les points de retour.** Après l'étape 1 on sait restaurer. Après l'étape 3 on
+peut encore effacer les concours migrés et revenir. **Après l'étape 4, non** :
+revenir en arrière demande de redéployer le dépôt legacy. Après l'étape 8,
+`challenges` n'existe plus et la migration n'est plus rejouable — c'est la
+seconde étape irréversible, et elle gagne à être un autre jour.
+
+**Copier la sauvegarde de l'étape 8 ailleurs que sur le disque du portable**
+avant de la lancer. C'est la seule marche arrière qui reste.
 
 ### Ce qui doit exister côté app
 
@@ -262,7 +359,7 @@ Vérifier le lendemain matin :
 npx firebase functions:log --only dailyCycle --project pet-match-30417
 ```
 
-## 6. Ce qui n'est pas couvert
+## 7. Ce qui n'est pas couvert
 
 - **Aucune interface.** Tout passe par la ligne de commande. Une console de
   modération se justifiera quand le volume l'exigera, pas avant.
