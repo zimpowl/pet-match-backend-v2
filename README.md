@@ -182,10 +182,12 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   un vote est juste si l'animal choisi finit devant. `correctVotes` reste donc à 0 d'ici là,
   et le classement s'appelle « jurés les plus actifs » (D11), sur les votes posés — gelés
   eux aussi.
-- **`firestore.indexes.json` porte aussi les index du legacy** (`challenges`, `votes`,
-  `instagram_posts`). Les deux backends visent le **même** projet : sans ça, un
-  `firebase deploy --only firestore:indexes` depuis ici proposerait de supprimer les index
-  de l'ancien, encore déployé. À nettoyer en L7 seulement.
+- **`firestore.indexes.json` ne porte plus que les index v2** — dix, plus une exception de
+  champ. Les index du legacy en ont été retirés au commit `85cc0e6`. Comme les deux
+  backends visent le **même** projet, le risque est donc désormais **inversé** : un
+  `firebase deploy --only firestore:indexes` depuis ici **proposera de supprimer** les
+  index de l'ancien, encore déployé. Répondre non tant que le legacy sert ; ne les laisser
+  partir qu'après la purge, avec `--force`.
 - **`.eslintrc.js` a été réaligné sur le style du socle** : 100 colonnes, accolades
   espacées, pas de JSDoc obligatoire. Le preset `google` seul laissait 115 erreurs sur L0,
   et `lint` est un `predeploy` — le déploiement échouait avant même de commencer.
@@ -244,12 +246,11 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
 - **Dans une transaction Firestore, toutes les lectures précèdent toutes les écritures.**
   `nextSequence` fait une lecture : elle doit être appelée **avant** le premier `set`.
   C'est le piège qui a cassé `submitVote` au premier essai.
-- **Aucun body POST ne porte de `userUid`** et le client Ktor n'ajoute pas de header
-  `Authorization`. Les endpoints d'écriture le lisent donc dans la query **ou** le body via
-  `http/identity.ts`. Côté app il faut ajouter `@Query("userUid") userUid: String` aux cinq
-  méthodes POST — ça ne touche pas aux `@Serializable`.
-- **Dette de sécurité, à régler avant la prod (L7)** : sans vérification de jeton, n'importe
-  qui peut voter ou modifier un profil au nom de n'importe qui. C'est déjà la posture du
-  legacy, donc pas une régression — mais ça ne doit pas atteindre la prod. Le correctif est
-  `getAuth().verifyIdToken()` dans `http/identity.ts`, un seul fichier.
+- **Le jeton Firebase fait foi** (commit `6743384`). Le client Ktor pose un en-tête
+  `Authorization: Bearer` sur chaque appel, et `http/identity.ts` le vérifie par
+  `getAuth().verifyIdToken()` : l'identité vient du jeton, jamais du `userUid` déclaré.
+  Une requête qui présente un jeton valide pour un compte et réclame un autre `userUid`
+  agit sous le compte du jeton.
+- **Le repli sur le `userUid` déclaré n'existe que sur un projet de debug**, pour le compte
+  d'essai qui n'a pas de session Firebase. Hors debug, pas de jeton, pas d'appel — 403.
 - **Firestore `pet-match---debug`** : édition **STANDARD**, type `FIRESTORE_NATIVE`.
