@@ -41,7 +41,6 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         notifications: {
           results: user.notifications?.results ?? true,
           reminders: user.notifications?.reminders ?? true,
-          email: user.notifications?.email ?? true,
         },
       };
     }
@@ -62,7 +61,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       isVerified: false,
       locale: null,
       grade: { level: 0, reachedAt: { "0": bornAt } },
-      notifications: { results: true, reminders: true, email: true },
+      notifications: { results: true, reminders: true },
       rulesSignedAt: null,
       suspendedUntil: null,
       hiddenAt: null,
@@ -83,7 +82,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       hiddenAt: null,
       needsProfile: true,
       judgeNumber: null,
-      notifications: { results: true, reminders: true, email: true },
+      notifications: { results: true, reminders: true },
     };
   }),
 );

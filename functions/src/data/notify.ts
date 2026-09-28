@@ -2,7 +2,6 @@ import { getMessaging } from "firebase-admin/messaging";
 import { USERS, db } from "../firebase";
 import { UserDoc } from "../models/user";
 import { Notification } from "../core/notifications";
-import { Letter, addressOf, post } from "./mail";
 
 /**
  * L'envoi des notifications. Hors de la boucle du batch (§7) : le cycle écrit
@@ -17,7 +16,6 @@ export interface Recipient {
   readonly locale: string | null;
   readonly results: boolean;
   readonly reminders: boolean;
-  readonly email: boolean;
 }
 
 export async function loadRecipients(
@@ -36,7 +34,6 @@ export async function loadRecipients(
       locale: user?.locale ?? null,
       results: user?.notifications?.results ?? true,
       reminders: user?.notifications?.reminders ?? true,
-      email: user?.notifications?.email ?? true,
     });
   }
   return result;
@@ -156,29 +153,21 @@ export interface PersonalNews {
   readonly notification: Notification;
 }
 
-export interface AnnounceReport {
-  readonly push: DeliveryReport;
-  readonly mailed: number;
-}
-
 /**
- * Les deux canaux d'une nouvelle personnelle : la notification pousse, le
- * courrier reste. Le courrier seul se coupe dans les réglages — la trace écrite
- * est un choix ; la notification, elle, part toujours (voir `wanted`).
- *
- * L'envoi de courrier ne peut pas faire échouer la notification : la file est
- * écrite après, et son échec est rapporté, pas propagé.
+ * Une nouvelle personnelle part par la notification, et seulement par elle. La
+ * notification d'un fait qui concerne le dossier part toujours : elle n'est pas
+ * soumise aux interrupteurs des réglages, qui ne gouvernent que le résultat du
+ * soir et le rappel de l'après-midi (voir `wanted`).
  */
 export async function announcePersonal(
   news: readonly PersonalNews[],
-): Promise<AnnounceReport> {
+): Promise<DeliveryReport> {
   if (news.length === 0) {
-    return { push: { sent: 0, failed: 0, withoutToken: 0, tokensCleared: 0 }, mailed: 0 };
+    return { sent: 0, failed: 0, withoutToken: 0, tokensCleared: 0 };
   }
 
   const recipients = await loadRecipients(news.map((entry) => entry.userUid));
   const deliveries: Delivery[] = [];
-  const letters: Letter[] = [];
 
   for (const entry of news) {
     const recipient = recipients.get(entry.userUid);
@@ -189,14 +178,7 @@ export async function announcePersonal(
       notification: entry.notification,
       data: { kind: entry.kind, deepLink: "petmatch://app" },
     });
-
-    if (!recipient.email) continue;
-    const to = await addressOf(entry.userUid);
-    if (to) letters.push({ userUid: entry.userUid, to, notification: entry.notification });
   }
 
-  const push = await deliver(deliveries);
-  const mailed = await post(letters).catch(() => 0);
-
-  return { push, mailed };
+  return deliver(deliveries);
 }

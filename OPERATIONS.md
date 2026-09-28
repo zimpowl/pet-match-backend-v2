@@ -11,32 +11,27 @@ Pour la production, il faudra lever cette garde sciemment.
 
 ## 1. Ce que le joueur reçoit
 
-| Événement | Notification | Courrier | Déclenché par |
-|---|---|---|---|
-| Résultat du soir (18 h) | oui | non | `dailyCycle` |
-| Clôture d'un concours | oui | non | `dailyCycle` |
-| Rappel de vote (15 h) | oui | non | `dailyReminder` |
-| **Niveau atteint** | oui | oui | `grade.level` monte |
-| **Identité confirmée** | oui | oui | `isVerified` / `verifiedAt` |
-| **Pièce refusée** | oui | oui | demande passée à `REJECTED` |
-| **Photo retirée** | oui | oui | `hiddenAt` posé |
-| **Compte suspendu** | oui | oui | `suspendedUntil` posé |
+| Événement | Notification | Déclenché par |
+|---|---|---|
+| Résultat du soir (18 h) | oui | `dailyCycle` |
+| Clôture d'un concours | oui | `dailyCycle` |
+| Rappel de vote (15 h) | oui | `dailyReminder` |
+| **Niveau atteint** | oui | `grade.level` monte |
+| **Identité confirmée** | oui | `isVerified` / `verifiedAt` |
+| **Pièce refusée** | oui | demande passée à `REJECTED` |
+| **Photo retirée** | oui | `hiddenAt` posé |
+| **Compte suspendu** | oui | `suspendedUntil` posé |
 
 Les quatre dernières sont des **nouvelles du dossier**. Elles ne parlent pas du
 jeu : elles disent ce qui est arrivé à un compte, et aucun écran ne l'apprendra
 à qui n'ouvre pas l'app.
 
-## 2. Les trois interrupteurs
+## 2. Les deux interrupteurs
 
 Dans les réglages de l'app, et stockés dans `users/{uid}.notifications` :
 
 - **Résultats du soir** — coupe le classement de 18 h et la clôture.
 - **Rappel de vote** — coupe le mot de 15 h.
-- **Recevoir un mail** — coupe le **courrier** des nouvelles du dossier. Ce
-  réglage **n'est pas affiché** tant que l'extension de courrier n'est pas
-  installée : il ne servirait qu'à couper ce que personne ne reçoit. Le champ
-  `notifications.email` existe et vaut oui ; remettre la ligne dans
-  `SettingsPresenter` suffira.
 
 Les nouvelles du dossier **partent toujours en notification**, quels que soient
 les deux premiers interrupteurs. On ne choisit pas d'ignorer qu'une photo a été
@@ -76,7 +71,7 @@ de défaire un masquage trop large sans avoir à deviner ce qu'il avait emporté
 participations, les défaire referait le palmarès de gens qui n'ont rien demandé.
 Tous ferment le signalement.
 
-`--hide` et `--suspend` déclenchent chacun une notification et un courrier.
+`--hide` et `--suspend` déclenchent chacun une notification.
 
 ### Pièces d'identité
 
@@ -160,45 +155,7 @@ Les journaux :
 npx firebase functions:log --only onUserChanged --project pet-match---debug
 ```
 
-## 5. Le courrier
-
-Rien n'envoie de mail aujourd'hui. Le code **met en file** : il écrit un
-document dans la collection `mail`, au format attendu par l'extension Firebase
-**Trigger Email from Firestore**. Les documents s'empilent sans partir, et
-c'est sans conséquence — l'extension installée, l'arriéré part avec le reste.
-
-À installer une fois, par projet :
-
-```bash
-cd functions
-npx firebase ext:install firebase/firestore-send-email --project pet-match---debug
-```
-
-L'installateur pose ses questions. Ce qu'il faut répondre :
-
-| Question | Réponse |
-|---|---|
-| Firestore Instance ID | `(default)` |
-| Firestore Instance Location | `europe-west1` — celle de la base |
-| Authentication Type | `UsernamePassword` (ou `OAuth2` selon le fournisseur) |
-| SMTP connection URI | `smtps://<utilisateur>@<hôte>:465` — **sans le mot de passe** |
-| SMTP password | le mot de passe, stocké en secret |
-| Email documents collection | **`mail`** — c'est là qu'écrit le code |
-| Default FROM address | l'expéditeur, par exemple `PetMatch <ne-pas-repondre@pet-match.fr>` |
-| Firestore TTL type / value | `Day` / `7` — les messages traités s'effacent au bout d'une semaine |
-
-Le mot de passe va dans **SMTP password**, jamais dans l'URI : le champ est un
-secret, l'URI est stockée en clair dans la configuration de l'extension.
-
-Tant que l'extension n'est pas là, les documents s'empilent sans partir — et
-rien d'autre ne casse. Une fois installée, la file part toute seule, **y
-compris l'arriéré**.
-
-L'adresse n'est **jamais recopiée** dans Firestore : elle est lue dans Firebase
-Auth au moment de l'envoi. Un compte sans adresse — le faux compte de debug,
-par exemple — ne reçoit rien, sans erreur.
-
-## 6. Basculer en production
+## 5. Basculer en production
 
 Le projet de production est **`pet-match-30417`**. Rien n'y a encore été
 déployé : tout ce qui suit a été éprouvé sur `pet-match---debug` et n'a jamais
@@ -209,9 +166,6 @@ tourné en vrai.
 - **L'ancienne app s'éteint-elle ce jour-là ?** Supprimer `challenges` coupe le
   backend legacy, donc l'app encore installée chez les joueurs. Tant que la
   réponse est non, on migre sans nettoyer.
-- **Qui reçoit le courrier ?** L'extension d'envoi doit être installée sur le
-  projet de production avec ses propres identifiants SMTP, séparés de ceux de
-  debug.
 
 ### Les gardes à lever
 
@@ -247,10 +201,9 @@ que sur un projet de debug.
 ```bash
 cd functions
 
-# 1. le code, les index, l'extension
+# 1. le code et les index
 npx firebase deploy --only functions --project pet-match-30417
 npx firebase deploy --only firestore:indexes --project pet-match-30417
-npx firebase ext:install firebase/firestore-send-email --project pet-match-30417
 
 # 2. la sauvegarde, avant tout
 npm run retention -- --project=pet-match-30417 --commit
@@ -309,7 +262,7 @@ Vérifier le lendemain matin :
 npx firebase functions:log --only dailyCycle --project pet-match-30417
 ```
 
-## 7. Ce qui n'est pas couvert
+## 6. Ce qui n'est pas couvert
 
 - **Aucune interface.** Tout passe par la ligne de commande. Une console de
   modération se justifiera quand le volume l'exigera, pas avant.
@@ -319,4 +272,4 @@ npx firebase functions:log --only dailyCycle --project pet-match-30417
 - **La suspension ne se lève pas toute seule.** `suspendedUntil` est une date ;
   aucun geste ne la retire avant terme, et rien ne prévient à la levée.
 - **Aucun rattrapage si l'app est désinstallée.** Sans jeton, la notification se
-  perd. C'est précisément ce que le courrier corrige.
+  perd, et rien ne la rejoue au retour.

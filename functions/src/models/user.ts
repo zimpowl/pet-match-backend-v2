@@ -42,7 +42,7 @@ export interface UserDoc {
    * Deux interrupteurs seulement, parce qu'il n'y a que deux canaux (§ notify) :
    * le résultat du soir, et le rappel de l'après-midi.
    */
-  notifications: { results: boolean; reminders: boolean; email: boolean } | null;
+  notifications: { results: boolean; reminders: boolean } | null;
   /**
    * Compte fermé. Rien n'est effacé : les concours joués gardent le nom et la
    * photo qui les ont signés, et les votes restent comptés — les retirer

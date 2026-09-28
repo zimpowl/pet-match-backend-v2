@@ -679,7 +679,7 @@ async function main(): Promise<void> {
       judgeSince: judgedAt === undefined ? null : Timestamp.fromMillis(judgedAt),
       stats,
       totals,
-      // Les monnaies disparaissent (§6). `email` et le reste sont conservés.
+      // Les monnaies disparaissent (§6). Le reste du document est conservé.
       coins: FieldValue.delete(),
       diamonds: FieldValue.delete(),
     };
