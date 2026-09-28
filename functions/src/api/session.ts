@@ -37,6 +37,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
         rulesSignedAt: user.rulesSignedAt?.toMillis() ?? null,
         suspendedUntil: isSuspended(user) ? user.suspendedUntil?.toMillis() ?? null : null,
         needsProfile: needsProfile(user),
+        judgeNumber: user.judgeNumber ?? null,
         notifications: {
           results: user.notifications?.results ?? true,
           reminders: user.notifications?.reminders ?? true,
@@ -81,6 +82,7 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       suspendedUntil: null,
       hiddenAt: null,
       needsProfile: true,
+      judgeNumber: null,
       notifications: { results: true, reminders: true, email: true },
     };
   }),
