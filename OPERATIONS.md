@@ -169,11 +169,11 @@ tourné en vrai.
 
 ### Les gardes à lever
 
-Neuf outils refusent tout projet dont l'identifiant ne contient pas « debug ».
+Sept outils refusent tout projet dont l'identifiant ne contient pas « debug ».
 C'est délibéré : ils écrasent des données.
 
 ```
-migrate  cleanup  purge  schedule  seed  grades  nationality  tokens
+migrate  cleanup  schedule  seed  grades  nationality  tokens
 ```
 
 Plus, dans `functions/src/triggers/lifecycle.ts`, les déclenchements manuels
@@ -217,7 +217,7 @@ npm run migrate -- --project=pet-match-30417 --commit
 
 # 5. seulement si l'ancienne app est éteinte
 npm run cleanup -- --project=pet-match-30417 \
-  --collection=challenges,contests,matches,posts --commit
+  --targets=contests-v0,legacy,instagram,mail --commit
 ```
 
 La migration est **rejouable** : elle lit `challenges` et réécrit par-dessus.

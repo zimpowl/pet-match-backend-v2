@@ -16,7 +16,7 @@ import { contestOf } from "../collections";
  * La migration écrit déjà « FR » pour les nouvelles reprises (§6) ; cet outil
  * ne sert qu'aux jeux de données déjà migrés.
  *
- * Même garde que la migration et la purge : refus de tout projet dont l'id ne
+ * Même garde que la migration et le nettoyage : refus de tout projet dont l'id ne
  * dit pas « debug ». Et `--dry-run` par défaut.
  *
  *   npm run nationality -- --project=pet-match---debug

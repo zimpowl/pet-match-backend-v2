@@ -5,18 +5,25 @@ import { Timestamp, getFirestore } from "firebase-admin/firestore";
 
 /**
  * Suppression des collections mortes, sous-collections comprises. Sauvegarde
- * **avant** de supprimer, `--dry-run` par défaut, garde anti-prod et liste
- * blanche.
+ * **avant** de supprimer, `--dry-run` par défaut, garde anti-prod et cibles
+ * nommées.
  *
- *   npm run cleanup -- --project=pet-match---debug --collection=challenges
- *   npm run cleanup -- --project=pet-match---debug --collection=challenges --commit
+ *   npm run cleanup -- --project=pet-match---debug --targets=legacy
+ *   npm run cleanup -- --project=pet-match---debug --targets=legacy --commit
+ *
+ * Attention : `--dry-run` ne supprime rien dans Firestore, mais **écrit quand
+ * même** la sauvegarde, et donc écrase le fichier du même nom déjà présent.
+ * Pour inspecter sans toucher à une sauvegarde existante, passer `--out`.
+ *
+ * Les cibles sont nommées et jamais devinées : une ligne de runbook tient en un
+ * mot, là où une liste de collections est autant d'occasions de se tromper.
  *
  * Ordre de la bascule finale, et il compte : la migration **lit** `challenges`,
  * donc elle ne peut pas les supprimer elle-même sans se priver de sa source.
  *
  *   1. npm run migrate -- --project=… --commit     (rejouable tant qu'on teste)
  *   2. vérifier l'app de bout en bout
- *   3. npm run cleanup -- --project=… --collection=challenges,contests,matches,posts --commit
+ *   3. npm run cleanup -- --project=… --targets=legacy,instagram,mail --commit
  *
  * Après l'étape 3 il ne reste plus une ligne de legacy, et le garde `contestOf`
  * de `collections.ts` n'a plus rien à écarter.
@@ -24,32 +31,53 @@ import { Timestamp, getFirestore } from "firebase-admin/firestore";
 
 type Selector = (doc: FirebaseFirestore.QueryDocumentSnapshot) => boolean;
 
+interface Target {
+  readonly collection: string;
+  /** Absent : toute la collection. Présent : seulement ce qu'il retient. */
+  readonly select?: Selector;
+}
+
 /**
- * Ce qui est supprimable, et ce qu'on en prend.
+ * Ce qui est supprimable, groupé par intention.
  *
- * - `challenges` la source de la migration : concours, participants, jurés et
- *                votes de la génération précédente. Le backend legacy la lit
- *                encore : la supprimer, c'est éteindre l'ancienne app.
- * - `contests`   **les seuls vestiges v0** — ceux qui n'ont pas de `number`.
- *                La collection porte aussi les concours v2 : le sélecteur
- *                existe pour qu'une ligne de commande ne puisse pas les viser.
- * - `matches`    le système de brackets de la v0.
- * - `posts`      le fil social de la v0.
- *
- * Volontairement absentes : `configuration` (gating de version), `instagram_*`
- * (l'automatisation tourne encore, D15), `pets` et `users` que la migration
- * reprend en place.
+ * - `contests-v0` **les seuls vestiges v0** — ceux qui n'ont pas de `number`.
+ *                 La collection porte aussi les concours v2 : le sélecteur
+ *                 existe pour qu'aucune ligne de commande ne puisse les viser.
+ * - `legacy`      la source de la migration et les collections de la v0. Le
+ *                 backend legacy lit encore `challenges` : la supprimer, c'est
+ *                 éteindre l'ancienne app.
+ * - `instagram`   l'automation hors périmètre (D15), qui vivait dans l'ancien
+ *                 backend et n'a jamais eu de code en v2.
+ * - `mail`        la file de courrier, écrite pendant des mois par un canal que
+ *                 l'extension d'envoi, jamais installée, n'a jamais vidée.
  */
-const DELETABLE: Record<string, Selector> = {
-  challenges: () => true,
-  contests: (doc) => typeof doc.get("number") !== "number",
-  matches: () => true,
-  posts: () => true,
+const TARGETS: Record<string, readonly Target[]> = {
+  "contests-v0": [
+    { collection: "contests", select: (doc) => typeof doc.get("number") !== "number" },
+  ],
+  "legacy": [{ collection: "challenges" }, { collection: "matches" }, { collection: "posts" }],
+  "instagram": [{ collection: "instagram_posts" }, { collection: "instagram_config" }],
+  "mail": [{ collection: "mail" }],
 };
+
+/**
+ * Ce qu'on ne supprime jamais **en entier**, quoi qu'on demande. `contests` y
+ * figure tout en restant atteignable par `contests-v0` : une cible sélective
+ * sait ce qu'elle prend, une suppression de collection non.
+ */
+const PROTECTED = new Set([
+  "users",
+  "pets",
+  "contests",
+  "counters",
+  "configuration",
+  "verifications",
+  "reports",
+]);
 
 interface Options {
   readonly projectId: string;
-  readonly collections: string[];
+  readonly targets: readonly string[];
   readonly outDir: string;
   readonly commit: boolean;
 }
@@ -71,22 +99,25 @@ function parseOptions(argv: readonly string[]): Options {
     );
   }
 
-  const known = Object.keys(DELETABLE).join(", ");
-  const collections = (flag("collection") ?? "")
+  const known = Object.keys(TARGETS).join(", ");
+  const targets = (flag("targets") ?? "")
     .split(",")
     .map((name) => name.trim())
     .filter((name) => name.length > 0);
-  if (collections.length === 0) throw new Error(`--collection manquant. Supprimables : ${known}`);
+  if (targets.length === 0) throw new Error(`--targets manquant. Cibles : ${known}`);
 
-  for (const name of collections) {
-    if (!(name in DELETABLE)) {
-      throw new Error(`« ${name} » n'est pas dans la liste blanche. Supprimables : ${known}`);
+  for (const name of targets) {
+    if (!(name in TARGETS)) throw new Error(`cible inconnue « ${name} ». Cibles : ${known}`);
+    for (const target of TARGETS[name]) {
+      if (!target.select && PROTECTED.has(target.collection)) {
+        throw new Error(`collection protégée : ${target.collection}`);
+      }
     }
   }
 
   return {
     projectId,
-    collections,
+    targets,
     outDir: flag("out") ?? "backup",
     commit: argv.includes("--commit"),
   };
@@ -134,44 +165,56 @@ function count(rows: Record<string, Dumped>): number {
   );
 }
 
+async function sweep(
+  db: FirebaseFirestore.Firestore,
+  target: Target,
+  options: Options,
+): Promise<void> {
+  const snap = await db.collection(target.collection).get();
+  const doomed = target.select ? snap.docs.filter(target.select) : snap.docs;
+  const kept = snap.size - doomed.length;
+
+  const documents: Record<string, Dumped> = {};
+  for (const doc of doomed) documents[doc.id] = await dump(doc.ref, serialize(doc.data()));
+
+  const backupPath = join(options.outDir, `${target.collection}.json`);
+  writeFileSync(
+    backupPath,
+    JSON.stringify(
+      { project: options.projectId, collection: target.collection, documents },
+      null,
+      2,
+    ),
+  );
+
+  console.log(
+    `  ${target.collection.padEnd(16)} ${String(doomed.length).padStart(5)} docs` +
+      ` (${count(documents)} avec les sous-collections)` +
+      `${kept > 0 ? `, ${kept} conservés` : ""} -> ${backupPath}`,
+  );
+
+  if (!options.commit) return;
+
+  let done = 0;
+  for (const doc of doomed) {
+    await db.recursiveDelete(doc.ref);
+    done++;
+    if (done % 25 === 0 || done === doomed.length) {
+      console.log(`    supprimés ${done} / ${doomed.length}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const db = getFirestore(initializeApp({ projectId: options.projectId }));
 
   console.log(`projet : ${options.projectId}`);
+  console.log(`cibles : ${options.targets.join(", ")}`);
   mkdirSync(options.outDir, { recursive: true });
 
-  for (const name of options.collections) {
-    const snap = await db.collection(name).get();
-    const targets = snap.docs.filter(DELETABLE[name]);
-    const kept = snap.size - targets.length;
-
-    const documents: Record<string, Dumped> = {};
-    for (const doc of targets) documents[doc.id] = await dump(doc.ref, serialize(doc.data()));
-
-    const backupPath = join(options.outDir, `${name}.json`);
-    writeFileSync(
-      backupPath,
-      JSON.stringify({ project: options.projectId, collection: name, documents }, null, 2),
-    );
-
-    const total = count(documents);
-    console.log(
-      `  ${name.padEnd(12)} ${String(targets.length).padStart(5)} docs` +
-        ` (${total} avec les sous-collections)` +
-        `${kept > 0 ? `, ${kept} conservés` : ""} -> ${backupPath}`,
-    );
-
-    if (!options.commit) continue;
-
-    let done = 0;
-    for (const doc of targets) {
-      await db.recursiveDelete(doc.ref);
-      done++;
-      if (done % 25 === 0 || done === targets.length) {
-        console.log(`    supprimés ${done} / ${targets.length}`);
-      }
-    }
+  for (const name of options.targets) {
+    for (const target of TARGETS[name]) await sweep(db, target, options);
   }
 
   if (!options.commit) {

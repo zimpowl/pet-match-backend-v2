@@ -12,7 +12,7 @@ import { CONTEST_ZONE, atContestHour } from "../core/time";
  *
  * Les concours **clos ne bougent pas** : leurs dates sont leur histoire.
  *
- * Même garde que la migration et la purge : refus de tout projet dont l'id ne
+ * Même garde que la migration et le nettoyage : refus de tout projet dont l'id ne
  * dit pas « debug ». Et `--dry-run` par défaut.
  *
  *   npm run schedule -- --project=pet-match---debug
