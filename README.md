@@ -36,7 +36,8 @@ se branche sans une ligne de changement.
 - **L3 — écritures** ✅ les cinq endpoints POST : `joinContestHttp`, `submitVoteHttp`,
   `createPetHttp`, `updatePetHttp`, `updateProfileHttp`. Gardes isolés en fonctions pures
   (`core/voteRules.ts`, `core/joinRules.ts`, `core/petInput.ts`), séquences du D83 en
-  transaction. **108 tests**, plus tous les refus exercés contre l'émulateur.
+  transaction. **192 tests unitaires**, plus **16 tests d'intégration** joués contre
+  les émulateurs — dont le point d'authentification, qui n'en avait aucun.
 - **L1 — migration** ✅ **exécutée** sur `pet-match---debug` : 8865 documents,
   idempotence vérifiée sur trois passes. Sauvegardes dans `functions/backup/`.
 - **L4 — cycle de vie** ✅ `triggers/lifecycle.ts` : un job à 18 h, seule horloge du jeu.
@@ -79,7 +80,9 @@ vives servent l'appariement, les instantanés servent l'écran.
 
 ```bash
 cd functions
-npm test     # tsc -p tsconfig.test.json && node --test  (108 tests)
+npm test       # logique pure, sans émulateur          (192 tests)
+npm run test:emul  # authentification et porte de version (16 tests)
+                   # lance lui-même auth, firestore et functions
 npm run build
 npm run lint
 ```
