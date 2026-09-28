@@ -19,6 +19,12 @@ export async function callerUid(
   const token = bearer(header);
   if (token) {
     try {
+      // `checkRevoked` n'est pas demandé : en production, le jeton d'un compte
+      // supprimé ou suspendu reste donc valable jusqu'à son expiration, soit
+      // jusqu'à une heure. L'émulateur, lui, le refuse — on ne peut pas trancher
+      // ici. À décider délibérément, en pesant l'aller-retour supplémentaire
+      // vers Auth à chaque appel authentifié ; `deleteAccountHttp` est le cas
+      // où ça compte le plus.
       return (await getAuth().verifyIdToken(token)).uid;
     } catch {
       throw forbidden("jeton d'authentification invalide");

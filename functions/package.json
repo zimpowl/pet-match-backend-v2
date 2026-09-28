@@ -10,6 +10,7 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "tsc -p tsconfig.test.json && node --test \"lib-test/**/*.test.js\"",
+    "test:emul": "tsc -p tsconfig.test.json && firebase emulators:exec --project=pet-match---debug --only auth,firestore,functions \"node --test 'lib-test/**/*.emulator.js'\"",
     "seed": "tsc && node lib/admin/seed.js",
     "migrate": "tsc && node lib/admin/migrate.js",
     "cleanup": "tsc && node lib/admin/cleanup.js",
