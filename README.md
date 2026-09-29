@@ -97,7 +97,6 @@ et tous sont en simulation par défaut : rien ne s'écrit sans `--commit`.
 | Commande | Ce qu'elle fait |
 |---|---|
 | `npm run backup` | Sauvegarde des collections vers `backup/` |
-| `npm run cleanup` | **Purge** les collections mortes, après les avoir sauvegardées |
 | `npm run gate` | Lit et écrit la porte de version |
 | `npm run retention` | Pose la règle d'expiration des pièces d'identité |
 | `npm run grades` | Recalcule les grades |
@@ -117,28 +116,19 @@ qu'on la rouvre en urgence.
 
 ### Les purges
 
-```bash
-cd functions
+**Il n'y a plus d'outil de purge**, et c'est délibéré. `legacy`, `instagram`,
+`mail` et les 125 vestiges v0 de `contests` ont été supprimés de la production le
+2026-09-29 — 12 464 documents — puis `admin/cleanup.ts` a été retiré avec
+`admin/migrate.ts`. Un outil de suppression dont plus aucune cible n'existe ne
+peut que se tromper.
 
-# ce qui est supprimable, et ce que ça emporte
-npm run cleanup -- --project=<projet> --targets=contests-v0   # vestiges v0 de `contests`
-npm run cleanup -- --project=<projet> --targets=legacy        # challenges, matches, posts
-npm run cleanup -- --project=<projet> --targets=instagram     # instagram_posts, instagram_config
-npm run cleanup -- --project=<projet> --targets=mail          # la file de courrier
+Le jour où une collection devra disparaître, le geste juste sera d'écrire un
+script pour **celle-là**, sur le modèle de celui qui vit dans l'historique git :
+sauvegarde avant suppression, `--dry-run` par défaut, `recursiveDelete` pour les
+sous-collections, garde refusant tout projet qui ne dit pas « debug », et
+suppression du script une fois passé.
 
-# plusieurs d'un coup, puis pour de vrai
-npm run cleanup -- --project=<projet> --targets=legacy,instagram,mail --commit
-```
-
-La sauvegarde s'écrit **même en simulation**, et écrase le fichier du même nom :
-passer `--out` pour inspecter sans toucher à une sauvegarde existante.
-
-La bascule est faite : `legacy`, `instagram`, `mail` et les vestiges v0 de
-`contests` ont été supprimés de la production le 2026-09-29, 12 464 documents en
-tout, et l'outil de migration a été retiré avec eux. Il reste à `cleanup` un seul
-travail, le projet de debug — une republication de la prod n'efface pas les
-collections absentes de sa source. Une fois debug purgé, ce fichier n'aura plus
-de cible et devra partir à son tour.
+`npm run backup` reste, en lecture seule, pour prendre une copie avant.
 
 ### La porte de version
 

@@ -5,9 +5,9 @@ import { Timestamp, getFirestore } from "firebase-admin/firestore";
 
 /**
  * Sauvegarde JSON d'une ou plusieurs collections. **Lecture seule** : c'est
- * pour ça qu'il n'y a pas de liste blanche ici, contrairement à `cleanup.ts` —
- * la liste blanche protège la suppression, pas la lecture, et refuser de
- * sauvegarder une collection n'aurait protégé personne.
+ * pour ça qu'il n'y a pas de liste blanche ici, contrairement à l'outil de
+ * purge qui l'accompagnait. Une liste blanche protège la suppression, pas la
+ * lecture, et refuser de sauvegarder une collection n'aurait protégé personne.
  *
  *   npm run backup -- --project=pet-match---debug --collection=pets,users
  */

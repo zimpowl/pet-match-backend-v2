@@ -196,9 +196,6 @@ Deux lignes du rapport méritent un regard :
 ### Ce qu'on vérifie après
 
 ```bash
-# les concours migrés existent et portent un numéro : ce sont les « conservés »
-npm run cleanup -- --project=pet-match---debug --targets=contests-v0 --out=/tmp/verif
-
 # l'app les verrait — l'endpoint réclame un userUid, le repli debug l'accepte sans jeton
 curl -s "https://us-central1-pet-match---debug.cloudfunctions.net/getContestsHttp?userUid=<uid>"
 ```
@@ -235,15 +232,15 @@ pièges Cloud Run du §6 final sont, eux, toujours d'actualité.
 
 ### Les gardes à lever
 
-Quatre outils refusent tout projet dont l'identifiant ne contient pas « debug ».
+Trois outils refusent tout projet dont l'identifiant ne contient pas « debug ».
 C'est délibéré : ils écrasent des données.
 
 ```
-cleanup  seed  grades  tokens
+seed  grades  tokens
 ```
 
-Trois autres portaient le même garde et ont été retirés une fois leur travail
-fait : `migrate`, `nationality` et `schedule`.
+Quatre autres portaient le même garde et ont été retirés une fois leur travail
+fait : `migrate`, `nationality`, `schedule` et `cleanup`.
 
 Plus, dans `functions/src/triggers/lifecycle.ts`, les déclenchements manuels
 `runCycleHttp` et `runRemindersHttp`.
