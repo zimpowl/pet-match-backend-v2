@@ -1,6 +1,19 @@
 import { setGlobalOptions } from "firebase-functions";
 
-setGlobalOptions({ maxInstances: 10 });
+/**
+ * Le plafond d'instances est du CPU **réservé** aux yeux de Cloud Run, pas du
+ * CPU consommé : il compte dans le quota de la région même au repos. À dix, les
+ * vingt-cinq fonctions HTTP en réclamaient 250, plus que `us-central1` n'en
+ * accorde — le déploiement échouait sur des révisions qui ne démarraient pas.
+ *
+ * À trois, on réserve 75. Chaque instance sert 80 requêtes simultanées, donc
+ * une fonction tient 240 requêtes en parallèle : très au-delà de la pointe de
+ * 18 h, quand les notifications ouvrent l'app en même temps chez tout le monde.
+ *
+ * Remonter ce chiffre demande d'abord une augmentation du quota
+ * « Total allowable CPU » de la région.
+ */
+setGlobalOptions({ maxInstances: 3 });
 
 // L2 — lectures. Déployées à côté des anciennes, rien n'est cassé.
 export * from "./api/contests";
