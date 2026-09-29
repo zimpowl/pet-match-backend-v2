@@ -87,6 +87,83 @@ npm run build
 npm run lint
 ```
 
+### Les outils d'administration
+
+Tous se lancent **depuis `functions/`** — c'est là qu'est le `package.json` —
+et tous sont en simulation par défaut : rien ne s'écrit sans `--commit`.
+
+| Commande | Ce qu'elle fait |
+|---|---|
+| `npm run backup` | Sauvegarde des collections vers `backup/` |
+| `npm run migrate` | `challenges` → `contests`. Rejouable, idempotente |
+| `npm run cleanup` | **Purge** les collections mortes, après les avoir sauvegardées |
+| `npm run gate` | Lit et écrit la porte de version |
+| `npm run retention` | Pose la règle d'expiration des pièces d'identité |
+| `npm run grades` | Recalcule les grades |
+| `npm run nationality` | Rattrape les pays manquants |
+| `npm run schedule` | Recale les horaires de concours |
+| `npm run tokens` | Nettoie les jetons de notification morts |
+| `npm run reports` | Lit et traite les signalements |
+| `npm run verifications` | Lit et traite les demandes de confirmation d'identité |
+| `npm run seed` | Remplit un projet de debug de données de test |
+
+Sauf `gate`, `reports`, `verifications`, `backup` et `retention`, **tous refusent
+un projet dont l'identifiant ne contient pas « debug »**. C'est délibéré : ils
+écrasent des données. Le jour d'une bascule, on élargit le garde au projet de
+production **nommément**, et on le révoque juste après.
+
+`gate` n'a volontairement pas ce garde : il existe pour tourner en production,
+parce que c'est là qu'on ferme la porte après une publication et surtout là
+qu'on la rouvre en urgence.
+
+### Les purges
+
+```bash
+cd functions
+
+# ce qui est supprimable, et ce que ça emporte
+npm run cleanup -- --project=<projet> --targets=contests-v0   # vestiges v0 de `contests`
+npm run cleanup -- --project=<projet> --targets=legacy        # challenges, matches, posts
+npm run cleanup -- --project=<projet> --targets=instagram     # instagram_posts, instagram_config
+npm run cleanup -- --project=<projet> --targets=mail          # la file de courrier
+
+# plusieurs d'un coup, puis pour de vrai
+npm run cleanup -- --project=<projet> --targets=legacy,instagram,mail --commit
+```
+
+La sauvegarde s'écrit **même en simulation**, et écrase le fichier du même nom :
+passer `--out` pour inspecter sans toucher à une sauvegarde existante.
+
+Supprimer `legacy` détruit la source de la migration, qui n'est alors plus
+rejouable. C'est la dernière étape d'une bascule, jamais la première.
+
+### La porte de version
+
+```bash
+cd functions
+
+npm run gate -- --project=<projet>                                    # lire
+npm run gate -- --project=<projet> --android-latest=200 --ios-latest=5 --commit
+npm run gate -- --project=<projet> --android-min=200 --ios-min=5 --commit   # fermer
+npm run gate -- --project=<projet> --android-min=0 --ios-min=0 --commit     # rouvrir
+```
+
+`--latest` déclare ce qui est **publié sur les magasins** ; `--min` le plus
+ancien build encore accepté. L'outil refuse un minimum au-dessus du dernier
+publié — c'est ce qui empêche de bloquer tout le monde sur une version que
+personne ne peut installer.
+
+Rouvrir est l'issue de secours : une écriture d'un document, effective en moins
+d'une minute, sans déploiement.
+
+### Où trouver le reste
+
+- **`OPERATIONS.md`** — ce que le joueur reçoit, les gestes de modération, la
+  répétition de la migration sur dev, le runbook de bascule en production, et
+  les deux pièges de quota Cloud Run rencontrés le jour J.
+- **`TESTING.md`** et **`DEPLOY.md`**, dans le dépôt de l'app — tester sur un
+  appareil réel, et la liste de mise en production côté magasins.
+
 ### La notion de grade a été retirée (partout)
 
 `users.grade`, `pets.grade`, `petGradeAtEntry`, `judgeGradeAtEntry` et `contests.tier`
