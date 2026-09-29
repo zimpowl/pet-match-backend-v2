@@ -155,12 +155,19 @@ Les journaux :
 npx firebase functions:log --only onUserChanged --project pet-match---debug
 ```
 
-## 5. Répéter la migration sur dev
+## 5. Répéter la migration sur dev *(historique)*
 
-Le projet de dev est **`pet-match---debug`**. La migration y est **rejouable
-autant de fois qu'on veut** : elle lit `challenges`, écrit dans `contests` avec
-des identifiants déterministes, et réécrit par-dessus au passage suivant. C'est
-ici qu'on répète — la production ne se répète pas.
+> **Cette section décrit un outil qui n'existe plus.** La migration a été jouée
+> trois fois en production le 2026-09-29, `challenges` a été supprimée, et
+> `admin/migrate.ts` retiré du dépôt — il vit dans l'historique git. On garde ce
+> qui suit parce que ça explique la forme actuelle des données : d'où viennent
+> les identifiants des concours, pourquoi tout le monde est au grade 0, pourquoi
+> personne n'a de pseudo ni d'avatar repris.
+
+Le projet de dev est **`pet-match---debug`**. La migration y était **rejouable
+autant de fois qu'on voulait** : elle lisait `challenges`, écrivait dans
+`contests` avec des identifiants déterministes, et réécrivait par-dessus au
+passage suivant. C'est là qu'on répétait — la production ne se répète pas.
 
 ```bash
 cd functions
@@ -213,9 +220,12 @@ Un redéploiement du projet de debug efface les données v2. Il faut alors
 
 ## 6. Basculer en production
 
-Le projet de production est **`pet-match-30417`**. Rien n'y a encore été
-déployé : tout ce qui suit a été éprouvé sur `pet-match---debug` et n'a jamais
-tourné en vrai.
+Le projet de production est **`pet-match-30417`**. **La bascule a eu lieu le
+2026-09-29** : 30 fonctions v2 déployées, 27 fonctions legacy supprimées,
+11 813 documents migrés, puis 12 464 documents legacy effacés. Ce qui suit est
+donc le récit de ce qui a été fait, pas un programme — il reste ici parce que le
+prochain qui doutera d'un choix y trouvera la raison, et parce que les trois
+pièges Cloud Run du §6 final sont, eux, toujours d'actualité.
 
 ### Ce qu'il faut décider avant
 
@@ -225,12 +235,15 @@ tourné en vrai.
 
 ### Les gardes à lever
 
-Sept outils refusent tout projet dont l'identifiant ne contient pas « debug ».
+Quatre outils refusent tout projet dont l'identifiant ne contient pas « debug ».
 C'est délibéré : ils écrasent des données.
 
 ```
-migrate  cleanup  schedule  seed  grades  nationality  tokens
+cleanup  seed  grades  tokens
 ```
+
+Trois autres portaient le même garde et ont été retirés une fois leur travail
+fait : `migrate`, `nationality` et `schedule`.
 
 Plus, dans `functions/src/triggers/lifecycle.ts`, les déclenchements manuels
 `runCycleHttp` et `runRemindersHttp`.

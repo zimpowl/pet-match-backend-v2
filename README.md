@@ -36,10 +36,12 @@ se branche sans une ligne de changement.
 - **L3 — écritures** ✅ les cinq endpoints POST : `joinContestHttp`, `submitVoteHttp`,
   `createPetHttp`, `updatePetHttp`, `updateProfileHttp`. Gardes isolés en fonctions pures
   (`core/voteRules.ts`, `core/joinRules.ts`, `core/petInput.ts`), séquences du D83 en
-  transaction. **192 tests unitaires**, plus **16 tests d'intégration** joués contre
+  transaction. **175 tests unitaires**, plus **16 tests d'intégration** joués contre
   les émulateurs — dont le point d'authentification, qui n'en avait aucun.
-- **L1 — migration** ✅ **exécutée** sur `pet-match---debug` : 8865 documents,
-  idempotence vérifiée sur trois passes. Sauvegardes dans `functions/backup/`.
+- **L1 — migration** ✅ **terminée**. Trois passes sur la production le
+  2026-09-29, la dernière rendant 11 813 documents et 0 compte non migré sur 344.
+  `challenges` a ensuite été supprimée et l'outil retiré du dépôt : il vit
+  désormais dans l'historique git, avec ses sauvegardes dans `functions/backup/`.
 - **L4 — cycle de vie** ✅ `triggers/lifecycle.ts` : un job à 18 h, seule horloge du jeu.
   Activation du dimanche avec figeage du plafond, instantané du soir, clôture avec calcul
   de la justesse, médailles et agrégats, ouverture du brouillon suivant (D88). Vérifié
@@ -95,13 +97,10 @@ et tous sont en simulation par défaut : rien ne s'écrit sans `--commit`.
 | Commande | Ce qu'elle fait |
 |---|---|
 | `npm run backup` | Sauvegarde des collections vers `backup/` |
-| `npm run migrate` | `challenges` → `contests`. Rejouable, idempotente |
 | `npm run cleanup` | **Purge** les collections mortes, après les avoir sauvegardées |
 | `npm run gate` | Lit et écrit la porte de version |
 | `npm run retention` | Pose la règle d'expiration des pièces d'identité |
 | `npm run grades` | Recalcule les grades |
-| `npm run nationality` | Rattrape les pays manquants |
-| `npm run schedule` | Recale les horaires de concours |
 | `npm run tokens` | Nettoie les jetons de notification morts |
 | `npm run reports` | Lit et traite les signalements |
 | `npm run verifications` | Lit et traite les demandes de confirmation d'identité |
@@ -134,8 +133,12 @@ npm run cleanup -- --project=<projet> --targets=legacy,instagram,mail --commit
 La sauvegarde s'écrit **même en simulation**, et écrase le fichier du même nom :
 passer `--out` pour inspecter sans toucher à une sauvegarde existante.
 
-Supprimer `legacy` détruit la source de la migration, qui n'est alors plus
-rejouable. C'est la dernière étape d'une bascule, jamais la première.
+La bascule est faite : `legacy`, `instagram`, `mail` et les vestiges v0 de
+`contests` ont été supprimés de la production le 2026-09-29, 12 464 documents en
+tout, et l'outil de migration a été retiré avec eux. Il reste à `cleanup` un seul
+travail, le projet de debug — une republication de la prod n'efface pas les
+collections absentes de sa source. Une fois debug purgé, ce fichier n'aura plus
+de cible et devra partir à son tour.
 
 ### La porte de version
 
@@ -158,9 +161,10 @@ d'une minute, sans déploiement.
 
 ### Où trouver le reste
 
-- **`OPERATIONS.md`** — ce que le joueur reçoit, les gestes de modération, la
-  répétition de la migration sur dev, le runbook de bascule en production, et
-  les deux pièges de quota Cloud Run rencontrés le jour J.
+- **`OPERATIONS.md`** — ce que le joueur reçoit, les gestes de modération, le
+  récit de la bascule en production du 2026-09-29, et les **trois** pièges Cloud
+  Run rencontrés ce jour-là. Ses §5 et §6 décrivent une migration qui n'existe
+  plus : on les garde parce qu'ils expliquent la forme actuelle des données.
 - **`TESTING.md`** et **`DEPLOY.md`**, dans le dépôt de l'app — tester sur un
   appareil réel, et la liste de mise en production côté magasins.
 
@@ -326,10 +330,13 @@ C'est exactement ce que dit le §4.2 bis — « on voit les prétendants, pas l'
   corps. Et un rang immobile hors du podium ne notifie **rien** — une notification vide
   tue l'effet des autres (§8 point 6).
 - **Une requête de groupe de collections matche par nom de sous-collection**, sans
-  regarder le parent. Legacy et v2 nomment les leurs pareil, donc après migration
-  `collectionGroup("judges")` ramasse aussi les documents sous `challenges/`. Le filtre
-  est un second `orderBy` sur `registrationIndex`, que le legacy ne porte pas — Firestore
-  exclut tout document dépourvu d'un champ utilisé dans un `orderBy`. À retirer en L7.
+  regarder le parent : `collectionGroup("judges")` ramasse n'importe quel
+  `…/{id}/judges`. Tant que `challenges/` a coexisté avec `contests/`, la même
+  requête rendait deux fois le même uid. La protection est `contestOf()` de
+  `collections.ts`, qui vérifie que le grand-parent est bien `contests` — et non
+  un `orderBy` choisi pour son absence côté legacy, qui aurait été fragile.
+  `challenges` a disparu le 2026-09-29 ; le garde reste, parce qu'il est vrai
+  sans elle.
 - **`set(..., { merge: true })` n'interprète pas les chemins pointés**, contrairement à
   `update()`. Écrire `{ "stats.gold": 1 }` dans un `set` crée un champ littéralement nommé
   `stats.gold` à côté de `stats`. Il faut un objet imbriqué : `{ stats: { gold: 1 } }`, qui
