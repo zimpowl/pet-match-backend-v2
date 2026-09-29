@@ -4,7 +4,6 @@ import {
   CONTEST_DAYS,
   DAY_MILLIS,
   contestDayIndex,
-  emptyVotesPerDay,
   normalizeVotesPerDay,
   remainingVotesToday,
   secondsToReset,
@@ -29,8 +28,7 @@ test("hors fenêtre le jour n'existe pas", () => {
 });
 
 test("l'allocation ne se cumule pas d'un jour sur l'autre", () => {
-  const votesPerDay = emptyVotesPerDay();
-  votesPerDay[0] = 3;
+  const votesPerDay = [3, 0, 0, 0, 0, 0, 0];
 
   assert.equal(remainingVotesToday(votesPerDay, 0, 10), 7);
   assert.equal(remainingVotesToday(votesPerDay, 1, 10), 10);

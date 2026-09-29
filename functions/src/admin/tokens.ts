@@ -7,7 +7,7 @@ import { getFirestore } from "firebase-admin/firestore";
  * prod, et un `dailyCycle` ou un `dailyReminder` de debug les servirait pour de
  * vrai. Des vrais téléphones recevraient les notifications d'un bac à sable.
  *
- * Même garde que la migration et le nettoyage : refus de tout projet dont l'id ne
+ * Même garde que le nettoyage : refus de tout projet dont l'id ne
  * dit pas « debug ». Et `--dry-run` par défaut.
  *
  *   npm run tokens -- --project=pet-match---debug
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
   // `!=` exclut les documents dépourvus du champ, ce qui est exactement la
   // bonne lecture : un utilisateur sans jeton n'a rien à effacer, et il ne
   // coûte donc rien.
-  // Le nom est en clair, comme dans la migration et le nettoyage : importer la
+  // Le nom est en clair, comme dans le nettoyage : importer la
   // constante tirerait `../firebase`, dont le `initializeApp()` de haut niveau
   // se battrait avec celui d'ici — et c'est celui d'ici qui porte `--project`.
   const snap = await db.collection("users").where("fcmToken", "!=", null).select().get();

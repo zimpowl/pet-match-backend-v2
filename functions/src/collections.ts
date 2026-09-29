@@ -26,10 +26,14 @@ export const VERSION = "version";
  * Le concours d'un document de sous-collection, ou null s'il n'en vient pas.
  *
  * Un `collectionGroup` ne connaît pas son parent : `judges` et `participants`
- * désignent aussi bien `contests/{id}/…` que `challenges/{id}/…`, et le legacy
- * tourne encore sur le second. La migration reprenant l'identifiant du
- * challenge, les deux rendent le même uid — en lecture on compte double, en
- * écriture on modifierait les données du legacy.
+ * désignent n'importe quel `…/{id}/judges`, pas seulement `contests/{id}/…`.
+ *
+ * Ce garde est né de la cohabitation avec `challenges` : la migration reprenant
+ * l'identifiant du challenge, les deux rendaient le même uid — on comptait
+ * double en lecture, et en écriture on modifiait les données du legacy.
+ * `challenges` a été supprimée le 2026-09-29. Le garde reste : il était vrai
+ * avant cette raison et le demeure après, rien ne garantissant qu'aucune autre
+ * collection racine ne portera jamais une sous-collection de ce nom.
  *
  * Ce module ne touche pas à `firebase.ts` : les outils d'admin initialisent
  * leur propre application, et l'importer y déclencherait un second

@@ -11,7 +11,11 @@ export function contestDayIndex(nowMillis: number, startAtMillis: number): numbe
   return day >= 0 && day < CONTEST_DAYS ? day : null;
 }
 
-export function emptyVotesPerDay(): number[] {
+/**
+ * Sept jours à zéro. Privée depuis le retrait de la migration, qui en était la
+ * seule appelante hors de ce fichier.
+ */
+function emptyVotesPerDay(): number[] {
   return new Array<number>(CONTEST_DAYS).fill(0);
 }
 

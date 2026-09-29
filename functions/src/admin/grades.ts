@@ -13,7 +13,7 @@ import { GradeDoc } from "../models/grade";
  * On **relève**, on ne recalcule pas (D30) : le durcissement du cran 1, qui
  * demande maintenant quatre concours, ne redescend personne.
  *
- * Même garde que la migration : refus de tout projet dont l'id ne dit pas
+ * Même garde que le nettoyage : refus de tout projet dont l'id ne dit pas
  * « debug », et `--dry-run` par défaut.
  *
  *   npm run grades -- --project=pet-match---debug

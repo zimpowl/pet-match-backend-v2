@@ -18,15 +18,20 @@ import { Timestamp, getFirestore } from "firebase-admin/firestore";
  * Les cibles sont nommées et jamais devinées : une ligne de runbook tient en un
  * mot, là où une liste de collections est autant d'occasions de se tromper.
  *
- * Ordre de la bascule finale, et il compte : la migration **lit** `challenges`,
- * donc elle ne peut pas les supprimer elle-même sans se priver de sa source.
+ * **La production est faite** (2026-09-29, 12 464 documents supprimés) et l'outil
+ * de migration a été retiré avec elle. Il reste à cet outil un seul travail :
+ * le projet de debug, qui porte encore le jeu legacy et ne s'en débarrassera pas
+ * tout seul — une republication de la prod n'efface pas les collections absentes
+ * de sa source.
  *
- *   1. npm run migrate -- --project=… --commit     (rejouable tant qu'on teste)
- *   2. vérifier l'app de bout en bout
- *   3. npm run cleanup -- --project=… --targets=legacy,instagram,mail --commit
+ *   npm run cleanup -- --project=pet-match---debug \
+ *     --targets=contests-v0,legacy,instagram,mail --commit
  *
- * Après l'étape 3 il ne reste plus une ligne de legacy, et le garde `contestOf`
- * de `collections.ts` n'a plus rien à écarter.
+ * Une fois debug purgé, les quatre cibles n'auront plus de contenu nulle part.
+ * Le geste juste sera alors de supprimer ce fichier : un outil de suppression
+ * dont aucune cible n'existe ne peut plus que se tromper, et le jour où une
+ * autre collection devra partir, écrire sa cible vaudra mieux que réactiver
+ * quatre noms morts.
  */
 
 type Selector = (doc: FirebaseFirestore.QueryDocumentSnapshot) => boolean;
