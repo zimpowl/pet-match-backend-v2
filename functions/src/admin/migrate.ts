@@ -101,13 +101,8 @@ function parseOptions(argv: readonly string[]): Options {
     throw new Error("projet manquant : passer --project=<id> ou GOOGLE_CLOUD_PROJECT");
   }
 
-  // BASCULE — à révoquer une fois la migration de production faite.
-  // Le garde n'est pas retiré, il est élargi à un projet nommé : un outil qui
-  // accepte n'importe quel projet finit par tourner sur le mauvais.
-  const CUTOVER_PROJECT = "pet-match-30417";
-
   const emulated = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
-  if (!emulated && !/debug/i.test(projectId) && projectId !== CUTOVER_PROJECT) {
+  if (!emulated && !/debug/i.test(projectId)) {
     throw new Error(
       `refus d'écrire sur « ${projectId} » : la migration ne cible que les projets de debug`,
     );
