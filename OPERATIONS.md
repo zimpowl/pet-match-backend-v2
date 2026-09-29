@@ -361,8 +361,9 @@ npx firebase functions:log --only dailyCycle --project pet-match-30417
 
 ### Quand le déploiement bute sur le quota CPU
 
-Deux pièges rencontrés à la bascule du 2026-09-29, aucun des deux documenté par
-Firebase, et tous deux destinés à se reproduire.
+Trois pièges rencontrés à la bascule du 2026-09-29, aucun des trois documenté
+par Firebase, et tous destinés à se reproduire. Le troisième est le seul qui ne
+dise rien : il se lit dans les données, pas dans les journaux.
 
 **Les révisions mortes retiennent le quota.** Chaque déploiement empile une
 révision Cloud Run sans supprimer la précédente, et Cloud Run compte
@@ -406,6 +407,62 @@ done
 existe » : `dailyCycle` et `dailyReminder` sont appelées par Cloud Scheduler avec
 un compte de service, et les rendre publiques laisserait n'importe qui déclencher
 la clôture des concours.
+
+**Une fonction peut afficher « v2 » et servir encore l'ancien conteneur.** C'est
+le plus sournois des trois, parce qu'il ne produit aucune erreur.
+
+Un déploiement se fait en deux temps : Firebase appelle `UpdateFunction`, puis
+Cloud Run déroule la nouvelle révision. Quand le second échoue sur le quota, le
+premier a **déjà réussi** — les métadonnées et l'étiquette
+`firebase-functions-hash` portent la valeur neuve. `firebase functions:list`
+affiche donc la fonction comme à jour, pendant que Cloud Run continue d'envoyer
+100 % du trafic à la dernière révision saine.
+
+Pour les deux noms qui entrent en collision avec le backend legacy —
+`getOrCreateHttp` et `createPetHttp` — cette dernière révision saine **est le
+legacy**. Le 2026-09-29, `getOrCreateHttp` a servi la révision du 21 juillet
+pendant cinq heures après la bascule.
+
+Ce que ça donne côté produit, et pourquoi on ne l'a pas vu tout de suite : la
+réponse du legacy ne porte ni `needsRules` ni `needsProfile`. Le DTO de l'app
+donne `false` par défaut aux deux, donc `entryGate` renvoyait tout le monde
+directement dans l'app — ni règlement, ni formulaire de juré. Aucune erreur,
+aucun 500, aucune ligne de journal anormale. Ce qui a mis sur la piste est un
+détail de données : trois comptes créés à la forme legacy (`coins: 3000`,
+`name: "Anonyme"`) sur un projet dont les règles Firestore refusaient toute
+écriture cliente depuis deux heures. Seule une fonction pouvait les écrire.
+
+Et il ne se répare jamais seul : au déploiement suivant, Firebase compare les
+hachages, les trouve égaux, et affiche `Skipped (No changes detected)`.
+
+Le détecter — comparer ce qui sert à ce qui a été tenté :
+
+```bash
+gcloud run services list --project <projet> \
+  --format="table(metadata.name, status.traffic[0].revisionName, status.latestCreatedRevisionName)"
+```
+
+Une colonne du milieu différente de la troisième signale un déroulement échoué.
+Une colonne du milieu **vide** est pire : le service n'a aucune révision prête et
+répond 503. Dater la révision qui sert lève le doute :
+antérieure au jour de la bascule, c'est du legacy.
+
+Le corriger — cibler la fonction par son nom :
+
+```bash
+npx firebase deploy --only functions:getOrCreateHttp,functions:createPetHttp --project <projet>
+```
+
+C'est l'échappatoire au « Skipped », et elle est dans le code : le prédicat de
+saut de `planner.js` commence par `!want[id].targetedByOnly`. Une fonction
+nommée explicitement n'est jamais sautée, quel que soit son hachage. Inutile de
+tout supprimer pour repousser.
+
+**Ce `--only` ne contredit pas l'interdiction du §6.** Là-bas, un filtre est
+proscrit parce qu'il annule les **suppressions** de fonctions legacy, et c'est
+tout l'objet du déploiement de bascule. Une fois les suppressions faites, il n'y
+a plus rien à annuler : cibler par nom redevient le bon outil, et le seul qui
+force un redéploiement à hachage identique.
 
 ## 7. Ce qui n'est pas couvert
 
