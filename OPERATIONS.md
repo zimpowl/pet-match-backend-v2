@@ -359,6 +359,54 @@ Vérifier le lendemain matin :
 npx firebase functions:log --only dailyCycle --project pet-match-30417
 ```
 
+### Quand le déploiement bute sur le quota CPU
+
+Deux pièges rencontrés à la bascule du 2026-09-29, aucun des deux documenté par
+Firebase, et tous deux destinés à se reproduire.
+
+**Les révisions mortes retiennent le quota.** Chaque déploiement empile une
+révision Cloud Run sans supprimer la précédente, et Cloud Run compte
+`maxInstances × CPU` de **chacune** dans le quota « Total allowable CPU » de la
+région — même celles qui ne servent aucun trafic. Ce jour-là, 27 fonctions
+vivantes réservaient 77 CPU, mais 168 révisions mortes en retenaient **1 487**.
+Le déploiement échouait sur « Container Healthcheck failed. Quota exceeded ».
+
+Baisser `maxInstances` ne libère rien : ça ajoute une révision de plus. Il faut
+supprimer les mortes, ce qui est sans risque puisqu'elles ne reçoivent rien :
+
+```bash
+gcloud run services list --project <projet> --region us-central1 \
+  --format="value(status.traffic[0].revisionName)" | sort > /tmp/keep.txt
+gcloud run revisions list --project <projet> --region us-central1 \
+  --format="value(metadata.name)" | sort > /tmp/all.txt
+
+comm -23 /tmp/all.txt /tmp/keep.txt | wc -l          # regarder d'abord
+comm -23 /tmp/all.txt /tmp/keep.txt | while read r; do
+  gcloud run revisions delete "$r" --region us-central1 --project <projet> --quiet
+done
+```
+
+À faire tous les dix à quinze déploiements, avant que le quota ne morde.
+
+**L'autorisation d'invocation ne se pose qu'à la création.** Firebase accorde
+`allUsers / roles/run.invoker` quand il **crée** une fonction HTTP, jamais quand
+il la met à jour. Une fonction créée pendant un déploiement qui a échoué plus
+loin reste donc sans autorisation, et Cloud Run répond un **403 en HTML** — à ne
+pas confondre avec le 403 JSON de `http/identity.ts`, qui lui est le bon
+comportement. Redéployer ne corrige rien.
+
+```bash
+for s in <services>; do
+  gcloud run services add-iam-policy-binding "$s" --region us-central1 \
+    --project <projet> --member allUsers --role roles/run.invoker --quiet
+done
+```
+
+**Nommer les services un par un.** Surtout pas de boucle sur « tout ce qui
+existe » : `dailyCycle` et `dailyReminder` sont appelées par Cloud Scheduler avec
+un compte de service, et les rendre publiques laisserait n'importe qui déclencher
+la clôture des concours.
+
 ## 7. Ce qui n'est pas couvert
 
 - **Aucune interface.** Tout passe par la ligne de commande. Une console de
