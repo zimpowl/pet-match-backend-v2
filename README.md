@@ -164,16 +164,30 @@ d'une minute, sans déploiement.
 - **`TESTING.md`** et **`DEPLOY.md`**, dans le dépôt de l'app — tester sur un
   appareil réel, et la liste de mise en production côté magasins.
 
-### La notion de grade a été retirée (partout)
+### Les grades, et pourquoi tout le monde est à zéro
 
-`users.grade`, `pets.grade`, `petGradeAtEntry`, `judgeGradeAtEntry` et `contests.tier`
-n'existent plus, côté backend comme côté app. `tier` est parti avec le reste : son unique
-sémantique était « niveau minimum requis » (D27), donc sans grade il ne gardait rien.
+L'échelle des sept crans est **en service et automatique**. `computeGradeLevel` et
+`raiseGrade` (`core/grade.ts`) sont appelés à chaque clôture de concours
+(`triggers/lifecycle.ts`) et à chaque demande de vérification traitée
+(`triggers/account.ts`). `users.grade`, `pets.grade`, `gradeAtEntry` et `tier` existent
+tous.
 
-Conséquences à connaître quand la notion reviendra : il n'y a plus de garde de palier à
-l'inscription ni au vote, plus de `petGradeAtEntry` figé sur la slab (D30), et L4 n'a plus
-qu'un seul `DRAFT` à ouvrir par semaine au lieu d'un par palier. Tout est réversible :
-ce sont des champs et un garde, pas une architecture.
+| 0 | Novice   | dès l'inscription                   |
+| 1 | Confirmé | 4 concours **et** identité vérifiée |
+| 2 | Amateur  | 1 médaille                          |
+| 3 | Aguerri  | 3 médailles                         |
+| 4 | Expert   | 6 médailles dont 1 or               |
+| 5 | Maître   | 10 médailles dont 2 or              |
+| 6 | Légende  | 15 médailles dont 5 or              |
+
+**C'est une échelle, pas un cumul de points** : le niveau est le plus grand cran dont
+*toutes* les conditions jusqu'à lui sont remplies. Donc un profil non vérifié plafonne à
+0, même couvert de médailles.
+
+C'est pour ça que **tout le parc est à 0 aujourd'hui**, en production comme en debug : la
+vérification d'identité est gratuite mais **manuelle** (D42, D91), et personne n'a encore
+été traité. La migration sort d'ailleurs tout le monde à 0 délibérément. Ce n'est pas une
+panne, c'est le premier cran qui attend qu'on ouvre le guichet — `npm run verifications`.
 
 ### Vérifier les endpoints en local
 
