@@ -11,3 +11,8 @@ pieces/
 
 # Configuration locale de l'agent : elle porte des chemins absolus.
 .claude/
+
+# Les QR codes générés : ils se régénèrent, ils ne se versionnent pas.
+functions/qr/
+
+.DS_Store

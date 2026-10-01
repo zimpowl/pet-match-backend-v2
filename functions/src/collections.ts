@@ -15,6 +15,13 @@ export const VERIFICATIONS = "verifications";
 export const REPORTS = "reports";
 
 /**
+ * Les liens courts de `pet-match.fr/go/<code>` : un document par source — une
+ * clinique, un post, une campagne — et son compteur. Rien de personnel n'y est
+ * écrit, seulement des totaux.
+ */
+export const LINKS = "links";
+
+/**
  * La configuration du service, en un document. Protégée par le nettoyage, et
  * volontairement hors du code : la porte de version se rouvre par une écriture,
  * pas par un déploiement.

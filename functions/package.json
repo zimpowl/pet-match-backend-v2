@@ -13,6 +13,7 @@
     "test:emul": "tsc -p tsconfig.test.json && firebase emulators:exec --project=pet-match---debug --only auth,firestore,functions \"node --test 'lib-test/**/*.emulator.js'\"",
     "seed": "tsc && node lib/admin/seed.js",
     "gate": "tsc && node lib/admin/gate.js",
+    "links": "tsc && node lib/admin/links.js",
     "backup": "tsc && node lib/admin/backup.js",
     "tokens": "tsc && node lib/admin/tokens.js",
     "grades": "tsc && node lib/admin/grades.js",
@@ -29,12 +30,14 @@
     "firebase-functions": "^7.0.0"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@typescript-eslint/eslint-plugin": "^5.12.0",
     "@typescript-eslint/parser": "^5.12.0",
     "eslint": "^8.9.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.4.1",
+    "qrcode": "^1.5.4",
     "typescript": "^6.0.0"
   },
   "private": true
