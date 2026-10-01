@@ -98,6 +98,7 @@ et tous sont en simulation par défaut : rien ne s'écrit sans `--commit`.
 |---|---|
 | `npm run backup` | Sauvegarde des collections vers `backup/` |
 | `npm run gate` | Lit et écrit la porte de version |
+| `npm run links` | Les liens courts : tableau de bord, création, QR code |
 | `npm run retention` | Pose la règle d'expiration des pièces d'identité |
 | `npm run grades` | Recalcule les grades |
 | `npm run tokens` | Nettoie les jetons de notification morts |
@@ -110,9 +111,11 @@ un projet dont l'identifiant ne contient pas « debug »**. C'est délibéré : 
 écrasent des données. Le jour d'une bascule, on élargit le garde au projet de
 production **nommément**, et on le révoque juste après.
 
-`gate` n'a volontairement pas ce garde : il existe pour tourner en production,
-parce que c'est là qu'on ferme la porte après une publication et surtout là
-qu'on la rouvre en urgence.
+`gate` et `links` n'ont volontairement pas ce garde : ils existent pour tourner
+en production. `gate`, parce que c'est là qu'on ferme la porte après une
+publication et surtout là qu'on la rouvre en urgence. `links`, parce qu'un lien
+créé sur un projet de debug ne mène nulle part et qu'un flyer s'imprime une
+fois.
 
 ### Les purges
 
@@ -129,6 +132,71 @@ sous-collections, garde refusant tout projet qui ne dit pas « debug », et
 suppression du script une fois passé.
 
 `npm run backup` reste, en lecture seule, pour prendre une copie avant.
+
+**Les fichiers de `functions/backup/` ne sont pas des restes.** Ce sont les
+copies écrites *avant* les suppressions du 2026-09-29 — `instagram_posts.json`,
+`challenges.json` et les autres. Firestore est bien vide ; ces fichiers sont la
+seule marche arrière, et le dossier est ignoré par git, donc rien n'en part sur
+GitHub. Ils ne contiennent aucun secret, seulement des données métier.
+Conserve-les ailleurs que sur le portable, ou supprime-les en connaissance de
+cause.
+
+### Les liens courts
+
+`pet-match.fr/go/<code>` compte un clic et redirige vers le bon magasin selon le
+téléphone : App Store pour un iPhone ou un iPad, Play Store pour un Android, le
+site pour tout le reste. Un code par source — une clinique, un post, une
+campagne — et c'est ce qui permet de répondre à « est-ce que ça vaut le coup d'y
+retourner ? ».
+
+```bash
+cd functions
+
+npm run links -- --project=<projet>                                  # le tableau de bord
+npm run links -- --project=<projet> --create=<code> --label="…" --commit
+npm run links -- --project=<projet> --qr=<code>                      # le QR, en SVG
+npm run links -- --project=<projet> --delete=<code> --commit
+```
+
+Le tableau de bord donne, par lien, le total, les sept derniers jours et la
+répartition iOS / Android / web.
+
+**Ce qui est enregistré, et rien d'autre** : un total, un compteur par jour, un
+compteur par plateforme. Pas d'adresse IP, pas d'identifiant, pas de cookie.
+C'est un choix d'ingénierie autant qu'un choix de principe — une mesure sans
+donnée personnelle n'a besoin ni de bandeau de consentement, ni de registre, ni
+d'une ligne dans la politique de confidentialité.
+
+**Un code inconnu ne renvoie jamais d'erreur.** QR mal imprimé, faute de frappe,
+lien supprimé : la personne part sur le site. C'est pour ça qu'on peut supprimer
+un lien sans se soucier des flyers déjà distribués — ils continueront de mener
+quelque part d'utile, simplement sans être comptés. Les compteurs, eux,
+disparaissent avec le lien : l'outil les affiche avant d'effacer.
+
+Le QR sort en SVG, en correction d'erreur haute — un flyer se froisse, se tache
+et se lit de travers. C'est du vectoriel : il reste net à n'importe quelle taille
+d'impression. Les fichiers atterrissent dans `functions/qr/`, ignoré par git
+puisqu'ils se régénèrent.
+
+**Un code par clinique, jamais un code pour tous les vétérinaires.** C'est toute
+la valeur du dispositif : savoir chez qui réimprimer.
+
+#### Ce qui vit dans le dépôt du site
+
+La fonction `goHttp` ne serait pas joignable sur `pet-match.fr` sans une
+réécriture déclarée dans le `firebase.json` de **`pet-match-web`** :
+
+```json
+"rewrites": [
+  { "source": "/go/**", "function": "goHttp", "region": "us-central1" },
+  { "source": "**", "destination": "/index.html" }
+]
+```
+
+**L'ordre est le sujet.** Si la règle attrape-tout passe devant, le SPA avale le
+chemin et la fonction n'est jamais appelée — les liens « marchent » en affichant
+la page d'accueil, sans rien compter. C'est la seule façon de casser ce
+dispositif, et elle est silencieuse.
 
 ### La porte de version
 

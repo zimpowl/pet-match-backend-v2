@@ -11,13 +11,15 @@ import { LinkPlatform, dayKey } from "../core/links";
  *   npm run links -- --project=X                                    (le tableau)
  *   npm run links -- --project=X --create=clinique-durand --label="Clinique Durand" --commit
  *   npm run links -- --project=X --qr=clinique-durand               (le QR, en SVG)
+ *   npm run links -- --project=X --delete=clinique-durand --commit  (le retire)
  *
  * **Cet outil n'a pas le garde `/debug/i` des autres**, et c'est volontaire :
  * comme `gate`, il existe pour tourner en production. Un lien créé sur un projet
  * de debug ne mène nulle part, et un flyer s'imprime une fois.
  *
- * Il ne détruit rien : il lit, il crée, il écrit un fichier SVG. La seule
- * écriture possible est la création d'un document, derrière `--commit`.
+ * Supprimer un lien est sans danger pour qui l'a déjà scanné : un code inconnu
+ * renvoie vers le site, jamais vers une erreur. En revanche les compteurs
+ * partent avec — l'outil les affiche avant d'effacer, note-les si tu y tiens.
  */
 
 const LINKS = "links";
@@ -29,6 +31,7 @@ interface Options {
   readonly create?: string;
   readonly label?: string;
   readonly qr?: string;
+  readonly remove?: string;
   readonly outDir: string;
   readonly commit: boolean;
 }
@@ -55,6 +58,7 @@ function parseOptions(argv: readonly string[]): Options {
     create,
     label: flag("label"),
     qr: flag("qr"),
+    remove: flag("delete"),
     outDir: flag("out") ?? "qr",
     commit: argv.includes("--commit"),
   };
@@ -91,6 +95,31 @@ async function main(): Promise<void> {
       jours: {},
       par: {},
     });
+    console.log("\nfait.");
+    return;
+  }
+
+  if (options.remove) {
+    const ref = db.collection(LINKS).doc(options.remove);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error(`le lien « ${options.remove} » n'existe pas`);
+
+    const par = (snap.get("par") ?? {}) as Record<string, number>;
+    console.log(`suppression ${options.remove}`);
+    console.log(`libellé     ${snap.get("label") ?? "(aucun)"}`);
+    console.log(
+      `clics       ${snap.get("total") ?? 0} ` +
+        `(${PLATFORMS.map((p) => `${p} ${par[p] ?? 0}`).join(", ")})`,
+    );
+    console.log("\nCes compteurs ne sont écrits nulle part ailleurs : ils partent avec le lien.");
+    console.log("Les QR déjà imprimés continueront de fonctionner — ils mèneront au site.");
+
+    if (!options.commit) {
+      console.log("\n--dry-run : rien n'a été supprimé. Ajouter --commit.");
+      return;
+    }
+
+    await ref.delete();
     console.log("\nfait.");
     return;
   }
