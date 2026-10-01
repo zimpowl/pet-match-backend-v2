@@ -26,8 +26,8 @@ import { bucketOf } from "../storage";
  * La console demande d'être membre du projet — c'est la bonne porte.
  *
  * L'annonce au joueur n'est pas faite ici : `--accept` lève `isVerified` ou
- * `verifiedAt`, `--refuse` passe la demande à `REJECTED`, et les déclencheurs
- * de `triggers/account.ts` s'en chargent — notification et courrier.
+ * `verifiedAt` et passe la demande à `VERIFIED`, `--refuse` la passe à
+ * `REJECTED`, et les déclencheurs de `triggers/account.ts` s'en chargent.
  */
 
 interface Options {
@@ -105,8 +105,9 @@ async function main(): Promise<void> {
       .orderBy("createdAt", "asc")
       .get();
 
-    // Accepter laisse le statut à `PENDING` — la confirmation vit sur le doc du
-    // joueur, pas ici. Ce qui distingue une demande traitée, c'est `reviewedAt`.
+    // `reviewedAt` reste le second filet : une demande traitée porte toujours
+    // une date, même si son statut n'avait pas suivi — ce fut le cas des
+    // demandes acceptées avant que `VERIFIED` ne soit écrit ici.
     const waiting = snap.docs.filter((doc) => doc.get("reviewedAt") == null);
 
     console.log(`${waiting.length} pièce(s) en attente`);
@@ -176,7 +177,7 @@ async function main(): Promise<void> {
   }
 
   await ref.update({
-    status: options.accept ? "PENDING" : "REJECTED",
+    status: options.accept ? "VERIFIED" : "REJECTED",
     reviewedAt: Timestamp.now(),
     reason: options.refuse,
   });

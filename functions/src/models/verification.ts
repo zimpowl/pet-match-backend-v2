@@ -23,7 +23,14 @@ export interface VerificationDoc {
   /** L'animal concerné, null pour une demande de juré. */
   petUid: string | null;
   files: VerificationFileDoc[];
-  status: Exclude<VerificationStatus, "NONE" | "VERIFIED">;
+  /**
+   * L'état de la **demande**. `NONE` n'en est pas un : il décrit l'absence de
+   * demande, côté app. Les trois autres sont des états réels qu'une demande
+   * traverse, et `VERIFIED` est terminal — la confirmation elle-même reste
+   * portée par `pets/{uid}.verifiedAt` ou `users/{uid}.isVerified`, qui font
+   * foi. Ce champ dit ce qu'est devenue la demande, rien de plus.
+   */
+  status: Exclude<VerificationStatus, "NONE">;
   createdAt: firestore.Timestamp;
   reviewedAt: firestore.Timestamp | null;
   reason: string | null;
