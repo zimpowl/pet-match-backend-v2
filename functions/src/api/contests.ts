@@ -25,11 +25,16 @@ import { JsonResponse, Query, notFound, param, requiredParam, respond } from "..
  * Le feed. Renvoie les votes du jour et une page d'étiquettes triée par numéro
  * décroissant (D84) : `direction=newer` remonte vers le plus récent,
  * `older` descend vers le plus ancien.
+ *
+ * **`userUid` est facultatif** : on lit l'app sans compte, et c'est seulement
+ * pour agir — voter, inscrire un animal, ouvrir son profil — qu'une licence est
+ * demandée. Sans lui, chaque carte sort avec `NO_ME` et l'allocation du jour
+ * est l'allocation entière, comme pour un juré qui n'a encore rien posé.
  */
 export const getContestsHttp = onRequest({ cors: true }, (req, res) =>
   respond(res as unknown as JsonResponse, async (): Promise<ContestsResponse> => {
     const query = req.query as Query;
-    const userUid = requiredParam(query, "userUid");
+    const userUid = param(query, "userUid") ?? null;
     const request: ContestPageRequest = {
       direction: parsePageDirection(param(query, "direction")),
       cursor: parseCursor(param(query, "cursor")),
@@ -39,7 +44,7 @@ export const getContestsHttp = onRequest({ cors: true }, (req, res) =>
     const now = Date.now();
     const [page, petIds] = await Promise.all([
       loadContestPage(request),
-      loadPetIds(userUid),
+      userUid ? loadPetIds(userUid) : Promise.resolve([] as string[]),
     ]);
     const me = await loadMe(page.contests, userUid, petIds);
 
