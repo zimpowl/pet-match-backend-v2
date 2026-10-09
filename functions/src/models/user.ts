@@ -55,8 +55,6 @@ export interface UserDoc {
    * une **porte** : on ne se nomme pas et on ne vote pas avant. La date est
    * gardée parce qu'un règlement se signe à une version et à un instant — c'est
    * elle qu'on réaffiche, et c'est elle qui fera foi le jour où le texte change.
-   */
-  rulesSignedAt: firestore.Timestamp | null;
   /**
    * Suspension temporaire (D133). Le compte garde tout et ne peut plus agir
    * jusqu'à cette date. Null = jamais suspendu ; une date passée = suspension

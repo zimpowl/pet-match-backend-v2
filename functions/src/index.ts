@@ -36,7 +36,6 @@ export * from "./api/vote";
 export * from "./api/pets";
 export * from "./api/device";
 export * from "./api/session";
-export * from "./api/rules";
 export * from "./api/report";
 
 // L4 — cycle de vie : 18 h est la seule horloge du jeu.
