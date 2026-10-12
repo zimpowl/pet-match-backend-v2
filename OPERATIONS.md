@@ -1,11 +1,37 @@
 # Exploiter PetMatch
 
-Ce qui se décide à la main, comment le faire, et ce que le joueur en apprend.
-Tout se passe en ligne de commande depuis `functions/`, et **rien n'écrit sans
-`--commit`** : le défaut est toujours un essai à blanc.
+Tout ce qui se décide à la main : les commandes, les gestes de modération, ce
+que le joueur en apprend, et les pièges de déploiement.
 
-Les outils refusent tout projet dont l'identifiant ne contient pas « debug ».
-Pour la production, il faudra lever cette garde sciemment.
+Tout se lance **depuis `functions/`** — c'est là qu'est le `package.json` — et
+**rien n'écrit sans `--commit`** : le défaut est toujours un essai à blanc.
+
+```bash
+cd functions
+npm run <outil> -- --project=<projet>            # compte et signale
+npm run <outil> -- --project=<projet> --commit   # écrit
+```
+
+La plupart des outils **refusent tout projet dont l'identifiant ne contient pas
+« debug »**. C'est délibéré : ils écrasent des données. Trois exceptions
+assumées, parce qu'elles existent pour tourner en production : `gate` — c'est là
+qu'on ferme la porte après une publication et surtout là qu'on la rouvre en
+urgence —, `links` — un lien créé sur un projet de debug ne mène nulle part, et
+un flyer s'imprime une fois — et `reports`, `verifications`, `backup`,
+`retention`, qui ne détruisent rien.
+
+| Commande | Ce qu'elle fait | Prod |
+|---|---|---|
+| `npm run reports` | Lit et traite les signalements | oui |
+| `npm run verifications` | Lit et traite les demandes de confirmation d'identité | oui |
+| `npm run retention` | Pose la règle d'expiration des pièces d'identité | oui |
+| `npm run gate` | Lit et écrit la porte de version | oui |
+| `npm run links` | Liens courts : tableau de bord, création, QR | oui |
+| `npm run backup` | Copie des collections vers `backup/` | oui |
+| `npm run grades` | Relève les grades acquis | debug |
+| `npm run tokens` | Efface les jetons de notification | debug |
+| `npm run unfreeze` | Retire les palmarès gelés des participations (D138) | debug |
+| `npm run seed` | Remplit un projet de debug de données de test | debug |
 
 ---
 
@@ -22,119 +48,119 @@ Pour la production, il faudra lever cette garde sciemment.
 | **Photo retirée** | oui | `hiddenAt` posé |
 | **Compte suspendu** | oui | `suspendedUntil` posé |
 
-Les quatre dernières sont des **nouvelles du dossier**. Elles ne parlent pas du
+Les cinq dernières sont des **nouvelles du dossier**. Elles ne parlent pas du
 jeu : elles disent ce qui est arrivé à un compte, et aucun écran ne l'apprendra
 à qui n'ouvre pas l'app.
 
-## 2. Les deux interrupteurs
+### Les deux interrupteurs
 
-Dans les réglages de l'app, et stockés dans `users/{uid}.notifications` :
+Dans les réglages de l'app, stockés dans `users/{uid}.notifications` :
 
 - **Résultats du soir** — coupe le classement de 18 h et la clôture.
 - **Rappel de vote** — coupe le mot de 15 h.
 
-Les nouvelles du dossier **partent toujours en notification**, quels que soient
-les deux premiers interrupteurs. On ne choisit pas d'ignorer qu'une photo a été
-retirée. Seule la trace écrite est un choix. La règle vit dans `wanted()`,
-`functions/src/data/notify.ts`.
+Les nouvelles du dossier **partent toujours**, quels que soient ces deux
+interrupteurs. On ne choisit pas d'ignorer qu'une photo a été retirée. Seule la
+trace écrite est un choix. La règle vit dans `wanted()`, `src/data/notify.ts`.
 
-## 3. Les gestes
+---
+
+## 2. Les gestes
 
 ### Signalements
 
 ```bash
-cd functions
-npm run reports -- --project=pet-match---debug                              # la file
-npm run reports -- --project=pet-match---debug --id=<id> --close --commit      # vu, rien à faire
-npm run reports -- --project=pet-match---debug --id=<id> --hide --commit       # l'image signalée se tait
-npm run reports -- --project=pet-match---debug --id=<id> --show --commit       # et elle reparaît
-npm run reports -- --project=pet-match---debug --id=<id> --withdraw --commit   # hors des concours ouverts
-npm run reports -- --project=pet-match---debug --id=<id> --suspend=14 --commit # et le compte aussi
-npm run reports -- --project=pet-match---debug --id=<id> --takedown --commit   # tout d'un coup
+npm run reports -- --project=<projet>                                  # la file
+npm run reports -- --project=<projet> --id=<id> --close --commit       # vu, rien à faire
+npm run reports -- --project=<projet> --id=<id> --hide --commit        # l'image se tait
+npm run reports -- --project=<projet> --id=<id> --show --commit        # et elle reparaît
+npm run reports -- --project=<projet> --id=<id> --withdraw --commit    # hors des concours ouverts
+npm run reports -- --project=<projet> --id=<id> --suspend=14 --commit  # et le compte aussi
+npm run reports -- --project=<projet> --id=<id> --takedown --commit    # tout d'un coup
 ```
 
 `--hide` **ne supprime rien** : la photo reste en base, c'est la preuve du
 signalement. Elle n'est plus servie, et l'app affiche « photo supprimée » à sa
-place.
+place — ce qui n'est pas « il manque une photo », et dire les deux pareil
+laisserait croire à un oubli.
 
 Il vise **une image**, pas un profil. Un animal en porte plusieurs — celle de sa
-fiche, et une par inscription qu'il a pu changer — et le signalement dit
-laquelle était affichée. Seuls les documents qui portent cette image-là se
-taisent ; les autres photos restent servies. Fermer un compte ne masque rien :
-les concours gardent la photo qu'ils ont recopiée, c'est `--hide` et lui seul
-qui cache.
+fiche, et une par inscription — et le signalement dit laquelle était affichée.
+Seuls les documents qui portent cette image-là se taisent. Fermer un compte ne
+masque rien : les concours gardent la photo qu'ils ont recopiée.
 
 `--show` fait le geste inverse, et celui-là **rend tout** : l'asymétrie permet
-de défaire un masquage trop large sans avoir à deviner ce qu'il avait emporté.
+de défaire un masquage trop large sans deviner ce qu'il avait emporté.
 
-`--withdraw` ne touche que les concours non clos — un concours clos garde ses
-participations, les défaire referait le palmarès de gens qui n'ont rien demandé.
-Tous ferment le signalement.
-
-`--hide` et `--suspend` déclenchent chacun une notification.
+`--withdraw` ne touche que les concours **non clos** — un concours clos garde
+ses participations, les défaire referait le palmarès de gens qui n'ont rien
+demandé. Tous ferment le signalement. `--hide` et `--suspend` notifient.
 
 ### Pièces d'identité
 
 ```bash
-npm run verifications -- --project=pet-match---debug                                  # la file
-npm run verifications -- --project=pet-match---debug --id=<id> --download              # la pièce, en local
-npm run verifications -- --project=pet-match---debug --id=<id> --accept --commit
-npm run verifications -- --project=pet-match---debug --id=<id> --refuse="motif" --commit
+npm run verifications -- --project=<projet>                                # la file
+npm run verifications -- --project=<projet> --id=<id> --download           # la pièce, en local
+npm run verifications -- --project=<projet> --id=<id> --accept --commit
+npm run verifications -- --project=<projet> --id=<id> --refuse="motif" --commit
 ```
 
 La file imprime, sous chaque demande, le nom du fichier, son type et un **lien
-cliquable** vers la console Firebase pour le voir ou le télécharger. Le lien
-passe par la console et jamais par une URL de téléchargement : `documents/` est
-fermé en lecture pour tout le monde dans `storage.rules`, et un lien à jeton
-contournerait précisément cette règle. La console demande d'être membre du
-projet — c'est la bonne porte.
+cliquable vers la console Firebase**. Jamais une URL de téléchargement :
+`documents/` est fermé en lecture pour tout le monde dans `storage.rules`, et un
+lien à jeton contournerait précisément cette règle. La console demande d'être
+membre du projet — c'est la bonne porte.
 
-Sans `--accept` ni `--refuse`, `--id` affiche la demande complète : qui, quel
-animal, quels fichiers, avec les mêmes liens.
+Ce que le joueur peut déposer : une **photo ou un PDF**, dix mégaoctets au plus.
 
-Ce que le joueur peut déposer : une **photo ou un PDF**, dix mégaoctets au plus,
-sur les deux apps.
+`--accept` lève la confirmation, ce qui **relève le grade dans la seconde** et
+envoie les deux nouvelles — « identité confirmée », puis « grade 1 ».
+`--refuse` envoie le motif tel qu'écrit : il sera lu par le joueur, mot pour mot.
 
 La pièce **reste dans le bucket après la décision** : c'est la trace de ce qui a
-été confirmé, et elle doit pouvoir être reproduite. `--download` la récupère en
-local — `pieces/<id>/` par défaut, `--download=<dossier>` ailleurs — sans rien
-écrire ni décider. Ce dossier sort de Firebase : il ne va pas dans le dépôt.
-
-Elle ne reste pas pour toujours. **Cinq ans**, posés sur le bucket lui-même :
+été confirmé. Elle ne reste pas pour toujours — **cinq ans**, posés sur le
+bucket lui-même :
 
 ```bash
-npm run retention -- --project=pet-match---debug            # ce qui est en place
-npm run retention -- --project=pet-match---debug --commit   # la règle des cinq ans
+npm run retention -- --project=<projet>            # ce qui est en place
+npm run retention -- --project=<projet> --commit   # la règle des cinq ans
 ```
 
-Google Cloud Storage efface alors chaque pièce cinq ans après son dépôt, sans
-que personne ait à y penser. La commande est idempotente : elle dit si la règle
-est déjà là. **À passer une fois par projet**, debug comme prod.
-
-Et **fermer un compte les efface avant l'échéance** : une pièce justifie une
-confirmation, elle ne justifie plus rien quand le compte n'existe plus.
-`deleteAccountHttp` vide le préfixe `documents/<uid>/` et détache les demandes.
-
-`--accept` lève la
-confirmation, ce qui **relève le grade dans la seconde** et envoie les deux
-nouvelles — « identité confirmée », puis « grade 1 ». `--refuse` envoie le
-motif tel qu'écrit : il sera lu par le joueur, mot pour mot.
+Idempotente, **à passer une fois par projet**, debug comme prod. Et fermer un
+compte efface ses pièces avant l'échéance : `deleteAccountHttp` vide le préfixe
+`documents/<uid>/`.
 
 ### Grades
 
 ```bash
-npm run grades -- --project=pet-match---debug --commit
+npm run grades -- --project=<projet> --commit
 ```
 
-Recalcule et relève tous les grades. Utile après une correction de données ; en
-temps normal le cycle de 18 h et la confirmation d'identité suffisent. Un grade
-ne redescend jamais, et chaque cran franchi garde sa date.
+Relève tous les grades acquis. Utile après une correction de données ; en temps
+normal le cycle de 18 h et la confirmation d'identité suffisent. **On relève, on
+ne recalcule pas** : un grade ne redescend jamais, et chaque cran garde sa date.
 
-## 4. Où ça se déclenche
+| 0 | Novice | dès l'inscription |
+| 1 | Confirmé | 4 concours **et** identité vérifiée |
+| 2 | Amateur | 1 médaille |
+| 3 | Aguerri | 3 médailles |
+| 4 | Expert | 6 médailles dont 1 or |
+| 5 | Maître | 10 médailles dont 2 or |
+| 6 | Légende | 15 médailles dont 5 or |
 
-Trois déclencheurs Firestore, dans `functions/src/triggers/account.ts`. Ils
-regardent les documents changer, quel que soit **qui** les change — un outil,
-un script, ou la console Firebase à la main.
+C'est **une échelle, pas un cumul** : le niveau est le plus grand cran dont
+*toutes* les conditions jusqu'à lui sont remplies. Un profil non vérifié
+plafonne donc à 0, même couvert de médailles — et c'est pourquoi une grande
+partie du parc est à 0 : la vérification est gratuite mais **manuelle**, et la
+file s'ouvre avec `npm run verifications`.
+
+---
+
+## 3. Où ça se déclenche
+
+Trois déclencheurs Firestore, dans `src/triggers/account.ts`. Ils regardent les
+documents changer, quel que soit **qui** les change — un outil, un script, ou la
+console Firebase à la main.
 
 | Fonction | Document | Ce qu'elle regarde |
 |---|---|---|
@@ -142,248 +168,142 @@ un script, ou la console Firebase à la main.
 | `onPetChanged` | `pets/{petUid}` | `verifiedAt`, `grade.level`, `hiddenAt` |
 | `onVerificationReviewed` | `verifications/{id}` | passage à `REJECTED` |
 
-C'est pour ça que modifier un champ **à la main dans la console** prévient
-quand même le joueur. Il n'y a pas de porte dérobée.
-
-Un cran : `onUserChanged` relève le grade, ce qui réécrit le document et le
-rappelle. Au second passage seul le grade a bougé — la nouvelle du grade part,
-une seule fois.
-
-Les journaux :
+Modifier un champ **à la main dans la console** prévient donc quand même le
+joueur. Il n'y a pas de porte dérobée.
 
 ```bash
-npx firebase functions:log --only onUserChanged --project pet-match---debug
+npx firebase functions:log --only onUserChanged --project <projet>
 ```
 
-## 5. Répéter la migration sur dev *(historique)*
+---
 
-> **Cette section décrit un outil qui n'existe plus.** La migration a été jouée
-> trois fois en production le 2026-09-29, `challenges` a été supprimée, et
-> `admin/migrate.ts` retiré du dépôt — il vit dans l'historique git. On garde ce
-> qui suit parce que ça explique la forme actuelle des données : d'où viennent
-> les identifiants des concours, pourquoi tout le monde est au grade 0, pourquoi
-> personne n'a de pseudo ni d'avatar repris.
-
-Le projet de dev est **`pet-match---debug`**. La migration y était **rejouable
-autant de fois qu'on voulait** : elle lisait `challenges`, écrivait dans
-`contests` avec des identifiants déterministes, et réécrivait par-dessus au
-passage suivant. C'est là qu'on répétait — la production ne se répète pas.
+## 4. La porte de version
 
 ```bash
-cd functions
-
-# à blanc : lit tout, n'écrit rien
-npm run migrate -- --project=pet-match---debug
-
-# pour de vrai
-npm run migrate -- --project=pet-match---debug --commit
+npm run gate -- --project=<projet>                                          # lire
+npm run gate -- --project=<projet> --android-latest=200 --ios-latest=5 --commit
+npm run gate -- --project=<projet> --android-min=200 --ios-min=5 --commit   # fermer
+npm run gate -- --project=<projet> --android-min=0 --ios-min=0 --commit     # rouvrir
 ```
 
-Le passage à blanc est ce qu'on lit **avant** de poser. Il imprime ce qu'il a
-trouvé et ce qu'il compte écrire, et il **refuse d'écrire** si un identifiant de
-`challenges` entre en collision avec un vestige v0 de `contests`.
+`--latest` déclare ce qui est **publié sur les magasins** ; `--min` le plus
+ancien build encore accepté. L'outil refuse un minimum au-dessus du dernier
+publié — c'est ce qui empêche de bloquer tout le monde sur une version que
+personne ne peut installer.
 
-Deux lignes du rapport méritent un regard :
+Rouvrir est l'issue de secours : l'écriture d'un document, effective en moins
+d'une minute, sans déploiement.
 
-- **`animaux à créer (espèce inconnue, rangés en DOG)`** — un participant legacy
-  dont l'animal n'a pas pu être retrouvé par son nom sous son propriétaire. La
-  migration en fabrique un, forcément chien. Un compte de plus ici veut dire un
-  animal fantôme de plus en base.
-- **`seenPairs non remappables`** — des paires de duels dont un des deux animaux
-  n'existe plus. Sans conséquence : elles servaient à éviter de re-présenter un
-  duel déjà vu, et le concours est clos.
+---
 
-### Ce qu'on vérifie après
+## 5. Les liens courts
+
+`pet-match.fr/go/<code>` compte un clic et redirige vers le bon magasin selon le
+téléphone. Un code par source — une clinique, un post, une campagne — et c'est
+ce qui permet de répondre à « est-ce que ça vaut le coup d'y retourner ? ».
 
 ```bash
-# l'app les verrait — l'endpoint réclame un userUid, le repli debug l'accepte sans jeton
-curl -s "https://us-central1-pet-match---debug.cloudfunctions.net/getContestsHttp?userUid=<uid>"
+npm run links -- --project=<projet>                                  # le tableau de bord
+npm run links -- --project=<projet> --create=<code> --label="…" --commit
+npm run links -- --project=<projet> --qr=<code>                      # le QR, en SVG
+npm run links -- --project=<projet> --delete=<code> --commit
 ```
 
-Le `--out` n'est pas un détail : sans lui, une simple simulation **écrase**
-`functions/backup/` — la sauvegarde s'écrit même en `--dry-run`.
+**Ce qui est enregistré, et rien d'autre** : un total, un compteur par jour, un
+compteur par plateforme. Pas d'adresse IP, pas d'identifiant, pas de cookie. Une
+mesure sans donnée personnelle n'a besoin ni de bandeau de consentement, ni de
+registre, ni d'une ligne dans la politique de confidentialité.
 
-### Les vestiges v0 cohabitent
+**Un code inconnu ne renvoie jamais d'erreur** : QR mal imprimé, faute de
+frappe, lien supprimé — la personne part sur le site. On peut donc supprimer un
+lien sans se soucier des flyers déjà distribués.
 
-`contests` porte deux générations : les concours migrés, qui ont un `number`, et
-les documents de la v0, qui n'en ont pas. Les seconds restent visibles en base
-tant qu'on ne passe pas `--targets=contests-v0`. La migration s'en accommode —
-elle les détecte et refuse seulement en cas de collision d'identifiant.
+Le QR sort en SVG, correction d'erreur haute, dans `functions/qr/` (ignoré par
+git). **Un code par clinique, jamais un code pour tous les vétérinaires** :
+c'est toute la valeur du dispositif — savoir chez qui réimprimer.
 
-### Repartir de zéro
+> ⚠️ `goHttp` n'est joignable sur `pet-match.fr` que par une réécriture déclarée
+> dans le `firebase.json` du dépôt **`pet-match-web`**, et **l'ordre est le
+> sujet** : si la règle attrape-tout passe devant, le SPA avale le chemin, les
+> liens « marchent » en affichant l'accueil, et rien n'est compté.
+>
+> ```json
+> "rewrites": [
+>   { "source": "/go/**", "function": "goHttp", "region": "us-central1" },
+>   { "source": "**", "destination": "/index.html" }
+> ]
+> ```
 
-Un redéploiement du projet de debug efface les données v2. Il faut alors
-**rejouer la migration**, sinon l'app s'ouvre sans un seul concours.
+---
 
-## 6. Basculer en production
+## 6. Les jetons de notification
 
-Le projet de production est **`pet-match-30417`**. **La bascule a eu lieu le
-2026-09-29** : 30 fonctions v2 déployées, 27 fonctions legacy supprimées,
-11 813 documents migrés, puis 12 464 documents legacy effacés. Ce qui suit est
-donc le récit de ce qui a été fait, pas un programme — il reste ici parce que le
-prochain qui doutera d'un choix y trouvera la raison, et parce que les trois
-pièges Cloud Run du §6 final sont, eux, toujours d'actualité.
-
-### Ce qu'il faut décider avant
-
-- **L'ancienne app s'éteint-elle ce jour-là ?** Supprimer `challenges` coupe le
-  backend legacy, donc l'app encore installée chez les joueurs. Tant que la
-  réponse est non, on migre sans nettoyer.
-
-### Les gardes à lever
-
-Trois outils refusent tout projet dont l'identifiant ne contient pas « debug ».
-C'est délibéré : ils écrasent des données.
-
-```
-seed  grades  tokens
+```bash
+npm run tokens -- --project=pet-match---debug --commit
 ```
 
-Quatre autres portaient le même garde et ont été retirés une fois leur travail
-fait : `migrate`, `nationality`, `schedule` et `cleanup`.
+**À lancer après chaque republication de la prod sur debug**, et *avant* que les
+jobs de 18 h ne tournent. Les jetons qui arrivent alors sont ceux des appareils
+de **prod** : un `dailyCycle` de debug les servirait pour de vrai, et des
+téléphones réels recevraient les notifications d'un bac à sable.
 
-Plus, dans `functions/src/triggers/lifecycle.ts`, les déclenchements manuels
-`runCycleHttp` et `runRemindersHttp`.
+Ce n'est pas une perte : un appareil de debug repose son jeton au lancement
+suivant, par `registerDeviceHttp`.
 
-La garde est la même partout, une ligne par fichier :
+---
 
-```ts
-if (!emulated && !/debug/i.test(projectId)) throw new Error(...);
+## 7. Travailler en local
+
+```bash
+npx firebase emulators:start --only firestore,functions --project pet-match---debug
 ```
 
-**Ne pas la retirer.** L'élargir au projet de production nommément, le jour où
-on en a besoin, et la remettre après. Un outil qui accepte n'importe quel
-projet finit par tourner sur le mauvais.
-
-`reports` et `verifications` n'ont pas cette garde : ils sont faits pour
-tourner en production, et ne détruisent rien.
-
-Une garde reste en place quoi qu'il arrive : celle de `http/identity.ts`. En
-production, **pas de jeton, pas d'appel** — le repli sur l'uid déclaré n'existe
-que sur un projet de debug.
-
-### L'ordre
-
-> **Élargir les gardes d'abord.** Tant que ce n'est pas fait, chacune des
-> commandes `npm run` ci-dessous est **refusée** : `pet-match-30417` ne contient
-> pas « debug ». Voir la section précédente.
+Puis, dans un autre terminal, seeder et appeler :
 
 ```bash
 cd functions
-export PROD=pet-match-30417
-
-# 1. la sauvegarde, avant tout le reste
-npm run backup -- --project=$PROD --collection=challenges,pets,users,contests,configuration
-#    vérifier que les fichiers ne sont pas vides avant de continuer
-
-# 2. les règles et les index — SANS --force
-npx firebase deploy --only firestore:rules --project $PROD
-npx firebase deploy --only firestore:indexes --project $PROD
-#    répondre NON à toute suppression : les index du legacy servent encore
-#    attendre qu'ils soient READY, pas BUILDING, avant l'étape 4
-
-# 3. la migration, à blanc puis pour de vrai
-npm run migrate -- --project=$PROD
-npm run migrate -- --project=$PROD --commit
-
-# 4. le code — POINT DE NON-RETOUR
-npx firebase deploy --only functions --project $PROD
-#    en interactif : lire la liste de suppression avant de confirmer
-#    jamais --force, jamais --only functions:<nom> (un filtre annule les suppressions)
-
-# 5. seconde passe de migration
-npm run migrate -- --project=$PROD --commit
-#    le legacy a continué d'écrire entre 3 et 4 : c'est cette passe qui rattrape
-
-# 6. la rétention des pièces d'identité
-npm run retention -- --project=$PROD --commit
-
-# 7. vérifier l'app de bout en bout, sur la variante prodEnv
-
-# 8. seulement après vérification
-npm run cleanup -- --project=$PROD --targets=contests-v0,legacy,instagram,mail
-npm run cleanup -- --project=$PROD --targets=contests-v0,legacy,instagram,mail --commit
-
-# 9. les index morts, maintenant que plus rien ne les lit
-npx firebase deploy --only firestore:indexes --project $PROD --force
-
-# 10. remettre les gardes, et redéployer — deux d'entre elles vivent dans le code
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node lib/admin/seed.js --project=pet-match---debug --commit
+curl -s "http://127.0.0.1:5001/pet-match---debug/us-central1/getContestsHttp?userUid=zimpo"
 ```
 
-**Pourquoi le code après les données.** Déployer les fonctions v2 **supprime**
-les fonctions legacy du projet : elles ne sont plus dans les sources, et le CLI
-propose de retirer tout ce qui n'y est pas. L'ancien backend s'arrête donc à
-l'étape 4. Le faire avant la migration reviendrait à couper la source pendant
-qu'on la lit.
+`src/admin/seed.ts` pose un jeu de concours, de participants et de jurés
+calqué sur les fakes de l'app. Il est **idempotent** — identifiants fixes, chaque
+passe réécrit les mêmes documents.
 
-Deux noms survivent à cette suppression parce qu'ils existent des deux côtés :
-`getOrCreateHttp` et `createPetHttp` sont **écrasés**, pas retirés. L'ancienne
-app y trouvera un handler v2 qui réclame un jeton qu'elle n'envoie pas, et
-prendra un 403 plutôt qu'un 404. C'est le comportement voulu, mais autant le
-savoir en lisant les logs.
+Repartir de zéro sur debug : vider la base depuis la console Firestore, puis
+restaurer un export de production depuis la console Google Cloud. **Sans le
+vidage préalable, le legacy survit à la restauration.** Il n'y a plus d'outil de
+purge, et c'est délibéré : un outil de suppression dont plus aucune cible
+n'existe ne peut que se tromper.
 
-**Les points de retour.** Après l'étape 1 on sait restaurer. Après l'étape 3 on
-peut encore effacer les concours migrés et revenir. **Après l'étape 4, non** :
-revenir en arrière demande de redéployer le dépôt legacy. Après l'étape 8,
-`challenges` n'existe plus et la migration n'est plus rejouable — c'est la
-seconde étape irréversible, et elle gagne à être un autre jour.
+---
 
-**Copier la sauvegarde de l'étape 8 ailleurs que sur le disque du portable**
-avant de la lancer. C'est la seule marche arrière qui reste.
-
-### Ce qui doit exister côté app
-
-- Construire la variante **`prodEnv`**, qui pointe sur
-  `us-central1-pet-match-30417.cloudfunctions.net` et sur l'identifiant Google
-  de production. La variante `debugEnv` porte le suffixe `.debug` : les deux
-  s'installent côte à côte.
-- `useFakeAuth` vaut `false` sur Android, et suit le binaire sur iOS — un build
-  de release ne peut pas y entrer.
-- Les fichiers `GoogleService-Info-Prod.plist` et `google-services.json` de
-  production doivent être ceux du bon projet.
-
-### Ce qui doit exister côté site
-
-La vitrine `www.pet-match.fr` (dépôt `pet-match-web`) lit une seule route,
-`getPodiumsHttp`, et pointe encore sur **debug** : c'est le défaut de
-`src/config.js`, tant que le v2 n'est pas en production. Le jour de la bascule,
-la reconstruire avec la bonne adresse — Vite fige la variable **au moment du
-build**, la redéployer sans reconstruire ne changerait rien :
+## 8. Déployer
 
 ```bash
-cd pet-match-web
-VITE_API_BASE=https://us-central1-pet-match-30417.cloudfunctions.net npm run build
-npx firebase deploy --only hosting --project pet-match-30417
+npx firebase deploy --only functions --project <projet>
 ```
 
-Ou changer le défaut dans `src/config.js`, ce qui évite d'y repenser au build
-suivant. Vérifier ensuite que la page montre bien des concours : une vitrine
-vide veut dire que la migration n'a pas encore clos de concours en production.
+Le `predeploy` relance `lint` puis `build` : une erreur de lint arrête le
+déploiement avant qu'il ne commence.
 
-### Après la bascule
+**Lire la liste de suppression avant de confirmer.** Une fonction retirée du
+code est supprimée du projet, et une app installée qui l'appelle reçoit une
+erreur. En mode non interactif, le déploiement s'arrête net et demande de
+supprimer la fonction nommément — c'est le bon réflexe, et il vaut mieux que
+`--force`, qui emporte sans dire quoi.
 
-Le cycle de 18 h et le rappel de 15 h tournent tout seuls, en heure de Paris.
-Vérifier le lendemain matin :
+### Les trois pièges Cloud Run
 
-```bash
-npx firebase functions:log --only dailyCycle --project pet-match-30417
-```
-
-### Quand le déploiement bute sur le quota CPU
-
-Trois pièges rencontrés à la bascule du 2026-09-29, aucun des trois documenté
-par Firebase, et tous destinés à se reproduire. Le troisième est le seul qui ne
-dise rien : il se lit dans les données, pas dans les journaux.
+Rencontrés à la bascule du 2026-09-29, aucun documenté par Firebase, tous
+destinés à se reproduire.
 
 **Les révisions mortes retiennent le quota.** Chaque déploiement empile une
 révision Cloud Run sans supprimer la précédente, et Cloud Run compte
 `maxInstances × CPU` de **chacune** dans le quota « Total allowable CPU » de la
 région — même celles qui ne servent aucun trafic. Ce jour-là, 27 fonctions
 vivantes réservaient 77 CPU, mais 168 révisions mortes en retenaient **1 487**.
-Le déploiement échouait sur « Container Healthcheck failed. Quota exceeded ».
-
-Baisser `maxInstances` ne libère rien : ça ajoute une révision de plus. Il faut
-supprimer les mortes, ce qui est sans risque puisqu'elles ne reçoivent rien :
+Baisser `maxInstances` ne libère rien : ça ajoute une révision de plus.
 
 ```bash
 gcloud run services list --project <projet> --region us-central1 \
@@ -414,73 +334,39 @@ done
 ```
 
 **Nommer les services un par un.** Surtout pas de boucle sur « tout ce qui
-existe » : `dailyCycle` et `dailyReminder` sont appelées par Cloud Scheduler avec
-un compte de service, et les rendre publiques laisserait n'importe qui déclencher
-la clôture des concours.
+existe » : `dailyCycle` et `dailyReminder` sont appelées par Cloud Scheduler
+avec un compte de service, et les rendre publiques laisserait n'importe qui
+déclencher la clôture des concours.
 
-**Une fonction peut afficher « v2 » et servir encore l'ancien conteneur.** C'est
-le plus sournois des trois, parce qu'il ne produit aucune erreur.
-
-Un déploiement se fait en deux temps : Firebase appelle `UpdateFunction`, puis
-Cloud Run déroule la nouvelle révision. Quand le second échoue sur le quota, le
-premier a **déjà réussi** — les métadonnées et l'étiquette
-`firebase-functions-hash` portent la valeur neuve. `firebase functions:list`
-affiche donc la fonction comme à jour, pendant que Cloud Run continue d'envoyer
-100 % du trafic à la dernière révision saine.
-
-Pour les deux noms qui entrent en collision avec le backend legacy —
-`getOrCreateHttp` et `createPetHttp` — cette dernière révision saine **est le
-legacy**. Le 2026-09-29, `getOrCreateHttp` a servi la révision du 21 juillet
-pendant cinq heures après la bascule.
-
-Ce que ça donne côté produit, et pourquoi on ne l'a pas vu tout de suite : la
-réponse du legacy ne porte ni `needsRules` ni `needsProfile`. Le DTO de l'app
-donne `false` par défaut aux deux, donc `entryGate` renvoyait tout le monde
-directement dans l'app — ni règlement, ni formulaire de juré. Aucune erreur,
-aucun 500, aucune ligne de journal anormale. Ce qui a mis sur la piste est un
-détail de données : trois comptes créés à la forme legacy (`coins: 3000`,
-`name: "Anonyme"`) sur un projet dont les règles Firestore refusaient toute
-écriture cliente depuis deux heures. Seule une fonction pouvait les écrire.
-
-Et il ne se répare jamais seul : au déploiement suivant, Firebase compare les
-hachages, les trouve égaux, et affiche `Skipped (No changes detected)`.
-
-Le détecter — comparer ce qui sert à ce qui a été tenté :
+**Une fonction peut afficher « v2 » et servir encore l'ancien conteneur.** Le
+plus sournois des trois, parce qu'il ne produit aucune erreur. Un déploiement se
+fait en deux temps : Firebase appelle `UpdateFunction`, puis Cloud Run déroule
+la nouvelle révision. Quand le second échoue sur le quota, le premier a **déjà
+réussi** — `firebase functions:list` affiche la fonction à jour pendant que
+Cloud Run envoie 100 % du trafic à l'ancienne révision. Et il ne se répare
+jamais seul : au déploiement suivant, Firebase compare les hachages, les trouve
+égaux, et affiche `Skipped (No changes detected)`.
 
 ```bash
+# détecter : la colonne du milieu doit égaler la troisième
 gcloud run services list --project <projet> \
   --format="table(metadata.name, status.traffic[0].revisionName, status.latestCreatedRevisionName)"
+
+# corriger : une fonction nommée n'est jamais sautée
+npx firebase deploy --only functions:<nom>,functions:<nom> --project <projet>
 ```
 
-Une colonne du milieu différente de la troisième signale un déroulement échoué.
-Une colonne du milieu **vide** est pire : le service n'a aucune révision prête et
-répond 503. Dater la révision qui sert lève le doute :
-antérieure au jour de la bascule, c'est du legacy.
+Une colonne du milieu **vide** est pire : le service n'a aucune révision prête
+et répond 503.
 
-Le corriger — cibler la fonction par son nom :
+---
 
-```bash
-npx firebase deploy --only functions:getOrCreateHttp,functions:createPetHttp --project <projet>
-```
-
-C'est l'échappatoire au « Skipped », et elle est dans le code : le prédicat de
-saut de `planner.js` commence par `!want[id].targetedByOnly`. Une fonction
-nommée explicitement n'est jamais sautée, quel que soit son hachage. Inutile de
-tout supprimer pour repousser.
-
-**Ce `--only` ne contredit pas l'interdiction du §6.** Là-bas, un filtre est
-proscrit parce qu'il annule les **suppressions** de fonctions legacy, et c'est
-tout l'objet du déploiement de bascule. Une fois les suppressions faites, il n'y
-a plus rien à annuler : cibler par nom redevient le bon outil, et le seul qui
-force un redéploiement à hachage identique.
-
-## 7. Ce qui n'est pas couvert
+## 9. Ce qui n'est pas couvert
 
 - **Aucune interface.** Tout passe par la ligne de commande. Une console de
   modération se justifiera quand le volume l'exigera, pas avant.
 - **Le signalant n'est jamais prévenu** de la suite donnée à son signalement.
-  Volontaire pour l'instant : lui répondre, c'est lui dire ce qu'on a fait d'un
-  tiers.
+  Volontaire : lui répondre, c'est lui dire ce qu'on a fait d'un tiers.
 - **La suspension ne se lève pas toute seule.** `suspendedUntil` est une date ;
   aucun geste ne la retire avant terme, et rien ne prévient à la levée.
 - **Aucun rattrapage si l'app est désinstallée.** Sans jeton, la notification se
