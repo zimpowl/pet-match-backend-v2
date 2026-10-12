@@ -44,14 +44,20 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     }
 
     // Un joueur sans animal a un profil de juré parfaitement normal (§4.8) :
-    // on ne lui demande rien de plus que d'exister. Le nom et l'avatar
-    // arriveront de l'écran d'accueil du profil.
+    // on ne lui demande rien de plus que d'exister.
+    //
+    // Le nom et la photo du fournisseur sont posés **ici et une seule fois**,
+    // pour que le formulaire de juré arrive pré-rempli : redemander ce que
+    // Google ou Apple viennent d'accorder se vit comme une formalité de plus.
+    // Ils vont dans `name` et `avatarUrl`, jamais dans `nickname` — le pseudo
+    // reste un choix, et c'est lui que `needsProfile` attend.
+    const body = (req.body ?? {}) as Record<string, unknown>;
     const bornAt = Timestamp.now();
     const created: UserDoc = {
-      name: "",
+      name: fromProvider(body.name) ?? "",
       nickname: null,
       deletedAt: null,
-      avatarUrl: null,
+      avatarUrl: fromProvider(body.avatarUrl),
       description: null,
       countryCode: null,
       createdAt: bornAt,
@@ -71,16 +77,33 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
 
     return {
       uid: userUid,
-      avatarUrl: null,
+      avatarUrl: created.avatarUrl,
       fcmToken: null,
       suspendedUntil: null,
       hiddenAt: null,
-      needsProfile: true,
+      needsProfile: needsProfile(created),
       judgeNumber: null,
       notifications: { results: true, reminders: true },
     };
   }),
 );
+
+/**
+ * Ce que le fournisseur a donné, quand ça vaut la peine d'être gardé.
+ *
+ * Une identité Apple masquée arrive sous le nom **« Anonyme »** : le poser dans
+ * le formulaire reviendrait à proposer ce pseudo-là par défaut, et un
+ * classement d'Anonymes ne dit rien. Les chaînes vides tombent pour la même
+ * raison — mieux vaut un champ vide qu'un champ à effacer.
+ */
+const ANONYMOUS = ["anonyme", "anonymous", "unknown"];
+
+function fromProvider(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return ANONYMOUS.includes(trimmed.toLowerCase()) ? null : trimmed;
+}
 
 /**
  * Le profil n'est pas prêt à jouer. Deux manques, une seule porte : sans pseudo
