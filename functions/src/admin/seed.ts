@@ -16,6 +16,7 @@ import {
   participantFixture,
   photo,
 } from "./fixtures";
+import { EMPTY_STATS } from "../core/career";
 
 /**
  * Seed du projet de debug. Idempotent : les identifiants sont fixes, chaque
@@ -28,14 +29,6 @@ import {
  */
 
 const BATCH_SIZE = 400;
-const EMPTY_STATS: StatsDoc = {
-  contests: 0,
-  bestRank: null,
-  gold: 0,
-  silver: 0,
-  bronze: 0,
-};
-
 interface Options {
   readonly projectId: string;
   readonly commit: boolean;
@@ -283,8 +276,6 @@ function seed(writer: Writer, nowMillis: number): void {
         photoUrl: fixture.photoUrl,
         hiddenAt: null,
         registrationIndex: fixture.registrationIndex,
-        gradeAtEntry: 0,
-        statsAtContest: EMPTY_STATS,
         elo: fixture.elo,
         wins: fixture.wins,
         losses: fixture.losses,
@@ -309,8 +300,6 @@ function seed(writer: Writer, nowMillis: number): void {
         countryCode: fixture.countryCode,
         hiddenAt: null,
         registrationIndex: fixture.registrationIndex,
-        gradeAtEntry: 0,
-        statsAtContest: EMPTY_STATS,
         winner: null,
         votesPerDay: fixture.votesPerDay,
         votes: fixture.votes,

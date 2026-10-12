@@ -1,5 +1,4 @@
 import { firestore } from "firebase-admin";
-import { StatsDoc } from "./user";
 
 export type ContestStatus = "DRAFT" | "ACTIVE" | "CLOSED";
 export type Species = "DOG" | "CAT";
@@ -70,19 +69,6 @@ export interface ContestParticipantDoc {
    */
   hiddenAt: firestore.Timestamp | null;
   registrationIndex: number;
-  /**
-   * L'état de l'animal **à ce concours-ci**, ce concours compris (D90). Posé à
-   * l'inscription avec `contests + 1` — le 4e concours affiche « 4 » —, puis
-   * regelé à la clôture pour y replier la médaille et le `bestRank` de ce
-   * concours. On peut être premier le mardi soir : la médaille n'entre dans
-   * l'étiquette qu'une fois le concours terminé.
-   *
-   * Après la clôture, plus personne n'y touche. Une slab est un objet de
-   * collection : celle d'il y a trois mois doit dire ce que l'animal était
-   * alors, pas ce qu'il est devenu depuis (D30).
-   */
-  gradeAtEntry: number;
-  statsAtContest: StatsDoc;
   /** En direct, à chaque vote. Lu par l'appariement, jamais par l'utilisateur. */
   elo: number;
   wins: number;
@@ -115,9 +101,6 @@ export interface ContestJudgeDoc {
   hiddenAt: firestore.Timestamp | null;
   /** Rang du premier tour, comme pour les participants (D87). */
   registrationIndex: number;
-  /** Le juré à ce concours-ci, ce concours compris (D90). Cf. le participant. */
-  gradeAtEntry: number;
-  statsAtContest: StatsDoc;
   /**
    * Le vainqueur du concours, gelé à la clôture. C'est l'image de la slab d'un
    * juré : « j'étais là quand celui-là a gagné ». Un juré n'a pas d'image

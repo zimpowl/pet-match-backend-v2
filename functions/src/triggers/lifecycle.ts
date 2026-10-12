@@ -356,6 +356,10 @@ async function close(
   // médaille : or, argent et bronze pèsent pareil pour les compteurs (D55).
   // On relit les docs plutôt que d'incrémenter, parce que `bestRank` est un
   // minimum et qu'aucun `FieldValue` ne sait faire un minimum.
+  //
+  // Le palmarès s'écrit **ici et nulle part ailleurs** : plus aucune copie
+  // n'est recollée sur les participations. Ce document est la seule source,
+  // et toutes les listes le relisent au moment de s'afficher.
   const petIds = [...participantRanks.keys()];
   const judgeUids = [...judgeRanks.keys()];
 
@@ -374,10 +378,6 @@ async function close(
       { stats, grade: nextGrade(snap.data(), stats, snap.get("verifiedAt") != null) },
       true,
     );
-    // Le même agrégat sert d'instantané d'époque (D90) : « ce concours inclus »
-    // est exactement ce que `nextStats` vient de calculer. C'est ici, et
-    // seulement ici, que la médaille de ce concours entre dans son étiquette.
-    writes.set(ref.collection(PARTICIPANTS).doc(snap.id), { statsAtContest: stats }, true);
   }
 
   for (const snap of userDocs) {
@@ -394,7 +394,6 @@ async function close(
       },
       true,
     );
-    writes.set(ref.collection(JUDGES).doc(snap.id), { statsAtContest: stats }, true);
   }
 
   // Le vainqueur devient l'image de la slab de chaque juré : « j'étais là quand

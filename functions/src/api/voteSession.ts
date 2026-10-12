@@ -1,7 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { DUELS_PER_SESSION, buildDuels } from "../core/pairing";
 import { VoteSessionResponse } from "./contract";
-import { duelPet } from "./mappers";
+import { NO_ME, duelPet } from "./mappers";
 import {
   loadContest,
   loadJudge,
@@ -42,7 +42,7 @@ export const getVoteSessionHttp = onRequest({ cors: true }, (req, res) =>
 
     return {
       dailyVotes: await resolveDailyVotes(userUid, now, [
-        { contest, me: { participant: null, judge } },
+        { contest, me: { ...NO_ME, judge } },
       ]),
       theme: contest.doc.theme,
       duels: duels.flatMap((duel) => {

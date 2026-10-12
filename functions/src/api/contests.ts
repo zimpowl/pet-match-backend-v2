@@ -18,6 +18,7 @@ import {
   loadParticipants,
   loadPetIds,
 } from "../data/contests";
+import { careerFrom, loadJudgeCareers, loadPetCareers } from "../data/careers";
 import { resolveDailyVotes } from "../data/dailyVotes";
 import { JsonResponse, Query, notFound, param, requiredParam, respond } from "../http/respond";
 
@@ -91,11 +92,27 @@ export const getContestHttp = onRequest({ cors: true }, (req, res) =>
 
     const mine = me.get(contest.uid) ?? NO_ME;
 
+    // Les médailles affichées sur une ligne sont celles du jour : une lecture
+    // par animal en lice et par juré listé, groupées en deux allers-retours.
+    const [petCareers, judgeCareers] = await Promise.all([
+      loadPetCareers(participants.map((row) => row.petId)),
+      loadJudgeCareers(judges.map((row) => row.userUid)),
+    ]);
+
     return {
       dailyVotes: await resolveDailyVotes(userUid, now, [{ contest, me: mine }]),
       contest: contestCard(contest.uid, contest.doc, mine),
-      participants: participants.map((row) => participantRow(row, contest.doc.status)),
-      judges: judges.map((row) => judgeRow(row, contest.doc, contest.doc.maxVotesPerJudge)),
+      participants: participants.map((row) =>
+        participantRow(row, contest.doc.status, careerFrom(petCareers, row.petId)),
+      ),
+      judges: judges.map((row) =>
+        judgeRow(
+          row,
+          contest.doc,
+          contest.doc.maxVotesPerJudge,
+          careerFrom(judgeCareers, row.userUid),
+        ),
+      ),
     };
   }),
 );

@@ -26,6 +26,7 @@ import {
   requiredParam,
   respond,
 } from "../http/respond";
+import { careerOf } from "../core/career";
 import { callerUid } from "../http/identity";
 import { assertActive } from "../core/suspension";
 import { ContestParticipantDoc } from "../models/contest";
@@ -51,10 +52,13 @@ export const getJudgeHttp = onRequest({ cors: true }, (req, res) =>
     if (!user) throw notFound(`utilisateur ${userUid} introuvable`);
 
     const contests = await loadContestsByIds(judged.map((entry) => entry.contestUid));
+    // Le palmarès du juré est déjà sous la main : c'est celui de son document,
+    // le même que montre l'en-tête du profil.
+    const judgeCareer = careerOf(user);
     const prefetched: PrefetchedContest[] = judged.flatMap((entry) => {
       const contest = contests.get(entry.contestUid);
       return contest ?
-        [{ contest, me: { participant: null, judge: entry.judge } }] :
+        [{ contest, me: { ...NO_ME, judge: entry.judge, judgeCareer } }] :
         [];
     });
 
@@ -138,6 +142,7 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
         contestCard(entry.contest.uid, entry.contest.doc, {
           ...NO_ME,
           participant: entry.participant,
+          petCareer: careerOf(pet.doc),
         }),
       ),
     };

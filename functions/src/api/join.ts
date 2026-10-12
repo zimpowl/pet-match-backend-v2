@@ -6,7 +6,8 @@ import { PetDoc } from "../models/pet";
 import { DEFAULT_ELO } from "../core/elo";
 import { JoinRejection, rejectJoin } from "../core/joinRules";
 import { JoinContestResponse } from "./contract";
-import { contestCard } from "./mappers";
+import { contestCard, NO_ME } from "./mappers";
+import { careerOf } from "../core/career";
 import { resolveDailyVotes } from "../data/dailyVotes";
 import {
   HttpError,
@@ -98,11 +99,6 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
         // d'inscription (§4.2 bis).
         photoUrl,
         registrationIndex,
-        // L'état de l'animal à ce concours-ci (D90). Le concours courant se
-        // compte dès l'inscription — le 4e concours affiche « 4 » —, mais sa
-        // médaille attend la clôture, qui regèlera cet instantané.
-        gradeAtEntry: pet.grade?.level ?? 0,
-        statsAtContest: { ...pet.stats, contests: (pet.stats?.contests ?? 0) + 1 },
         elo: DEFAULT_ELO,
         wins: 0,
         losses: 0,
@@ -128,14 +124,18 @@ export const joinContestHttp = onRequest({ cors: true }, (req, res) =>
           counts: { ...contest.counts, participants, registrations: registrationIndex },
         },
         participant,
+        // Le palmarès de l'animal ne bouge pas en s'inscrivant : la carte
+        // renvoyée montre celui d'aujourd'hui, comme partout ailleurs.
+        career: careerOf(pet),
       };
     });
 
     return {
       dailyVotes: await resolveDailyVotes(userUid, now),
       contest: contestCard(contestUid, joined.contest, {
+        ...NO_ME,
         participant: joined.participant,
-        judge: null,
+        petCareer: joined.career,
       }),
     };
   }),

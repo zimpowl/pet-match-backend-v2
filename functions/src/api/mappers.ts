@@ -26,14 +26,29 @@ import {
   secondsToReset,
 } from "../core/allocation";
 import { DEFAULT_ELO } from "../core/elo";
+import { Career, EMPTY_CAREER } from "../core/career";
 
-/** Ce que le juré et le participant de *ce* user valent sur *ce* concours. */
+/**
+ * Ce que le juré et le participant de *ce* user valent sur *ce* concours.
+ *
+ * Les deux palmarès sont ceux du **jour**, lus sur `pets/{petId}` et
+ * `users/{userUid}` : une participation ne fige plus rien. Ils sont portés ici
+ * plutôt que relus dans le mapper parce qu'un mapper ne touche pas la base —
+ * c'est l'appelant qui les charge, en un aller-retour pour toute la page.
+ */
 export interface MeSource {
   readonly participant: ContestParticipantDoc | null;
   readonly judge: ContestJudgeDoc | null;
+  readonly petCareer: Career;
+  readonly judgeCareer: Career;
 }
 
-export const NO_ME: MeSource = { participant: null, judge: null };
+export const NO_ME: MeSource = {
+  participant: null,
+  judge: null,
+  petCareer: EMPTY_CAREER,
+  judgeCareer: EMPTY_CAREER,
+};
 
 export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
   const { participant, judge } = source;
@@ -65,8 +80,8 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       votesReceived: contest.status === "CLOSED" ?
         participant.votesReceived :
         participant.votesReceivedSnapshot ?? 0,
-      level: participant.gradeAtEntry ?? 0,
-      career: stats(participant.statsAtContest),
+      level: source.petCareer.level,
+      career: stats(source.petCareer.stats),
       // Un participant a sa propre photo : il n'emprunte rien au vainqueur.
       winner: null,
     };
@@ -88,8 +103,8 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       // Pas d'ELO pour les jurés (D17), et rien de reçu : ils donnent.
       elo: 0,
       votesReceived: 0,
-      level: judge.gradeAtEntry ?? 0,
-      career: stats(judge.statsAtContest),
+      level: source.judgeCareer.level,
+      career: stats(source.judgeCareer.stats),
       winner: judge.winner ?
         {
           petUid: judge.winner.petId,
@@ -163,10 +178,15 @@ export function contestCard(
  *
  * Un concours clos ne bouge plus : ses valeurs vives *sont* définitives, on les
  * lit directement plutôt que d'exiger un dernier instantané du job de 18 h.
+ *
+ * Le **palmarès**, lui, échappe à cette règle : il n'est pas du concours, il
+ * est de l'animal. `career` et `level` sont donc ceux d'aujourd'hui, les mêmes
+ * que sur sa fiche, et c'est l'appelant qui les a lus sur `pets/{petId}`.
  */
 export function participantRow(
   participant: ContestParticipantDoc,
   status: ContestStatusWire,
+  career: Career,
 ): ParticipantRowWire {
   return {
     petUid: participant.petId,
@@ -187,8 +207,8 @@ export function participantRow(
       participant.votesReceivedSnapshot ?? 0,
     rank: participant.rank,
     registrationIndex: participant.registrationIndex,
-    level: participant.gradeAtEntry ?? 0,
-    career: stats(participant.statsAtContest),
+    level: career.level,
+    career: stats(career.stats),
   };
 }
 
@@ -199,11 +219,15 @@ export function participantRow(
  * une précision provisoire reculerait certains soirs sans que le juré ait rien
  * fait. Mon propre compteur de votes reste en direct : il vit dans `me.votes`,
  * c'est mon budget et pas le classement des autres.
+ *
+ * Le palmarès est celui du jour, comme chez le participant : il appartient au
+ * juré, pas au concours qu'il a jugé.
  */
 export function judgeRow(
   judge: ContestJudgeDoc,
   contest: ContestDoc,
   limit: number,
+  career: Career,
 ): JudgeRowWire {
   return {
     userUid: judge.userUid,
@@ -221,8 +245,8 @@ export function judgeRow(
     votesPerDay: judge.votesPerDay ?? [],
     rank: judge.rank,
     registrationIndex: judge.registrationIndex,
-    level: judge.gradeAtEntry ?? 0,
-    career: stats(judge.statsAtContest),
+    level: career.level,
+    career: stats(career.stats),
   };
 }
 

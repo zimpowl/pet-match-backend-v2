@@ -3,10 +3,48 @@ import { CONTESTS, PARTICIPANTS, db } from "../firebase";
 import { ContestDoc, ContestParticipantDoc } from "../models/contest";
 import { PodiumEntryWire, PodiumsResponse } from "./contract";
 import { stats } from "./mappers";
+import { careerFrom, loadPetCareers } from "../data/careers";
+import { Careers } from "../core/career";
 import { toMillisOrZero } from "../core/time";
 import { JsonResponse, respond } from "../http/respond";
 
 const PODIUM = 3;
+
+interface PodiumRow {
+  readonly contestUid: string;
+  readonly contest: ContestDoc;
+  readonly rank: number;
+  readonly participant: ContestParticipantDoc;
+}
+
+function entry(row: PodiumRow, careers: Careers): PodiumEntryWire {
+  const { contest, participant } = row;
+  const career = careerFrom(careers, participant.petId);
+
+  return {
+    contestUid: row.contestUid,
+    number: contest.number,
+    theme: contest.theme,
+    startAt: toMillisOrZero(contest.startAt),
+    endAt: toMillisOrZero(contest.endAt),
+    counts: {
+      judges: contest.counts.judges,
+      participants: contest.counts.participants,
+    },
+    rank: row.rank,
+    pet: {
+      petUid: participant.petId,
+      number: participant.petNumber,
+      name: participant.petName,
+      breed: participant.petBreed,
+      species: participant.species,
+      sex: participant.sex,
+      level: career.level,
+      stats: stats(career.stats),
+      photoUrl: participant.photoUrl ?? null,
+    },
+  };
+}
 
 /**
  * Les podiums des concours clos, à plat : une entrée par place, de la première
@@ -41,41 +79,22 @@ export const getPodiumsHttp = onRequest({ cors: true }, (_req, res) =>
 
         const data = contest.data() as ContestDoc;
 
-        return top.docs.flatMap((doc): PodiumEntryWire[] => {
+        return top.docs.flatMap((doc): PodiumRow[] => {
           const participant = doc.data() as ContestParticipantDoc;
           const rank = participant.rank;
           if (rank === null || rank > PODIUM) return [];
           if (participant.hiddenAt != null) return [];
 
-          return [
-            {
-              contestUid: contest.id,
-              number: data.number,
-              theme: data.theme,
-              startAt: toMillisOrZero(data.startAt),
-              endAt: toMillisOrZero(data.endAt),
-              counts: {
-                judges: data.counts.judges,
-                participants: data.counts.participants,
-              },
-              rank,
-              pet: {
-                petUid: participant.petId,
-                number: participant.petNumber,
-                name: participant.petName,
-                breed: participant.petBreed,
-                species: participant.species,
-                sex: participant.sex,
-                level: participant.gradeAtEntry ?? 0,
-                stats: stats(participant.statsAtContest),
-                photoUrl: participant.photoUrl ?? null,
-              },
-            },
-          ];
+          return [{ contestUid: contest.id, contest: data, rank, participant }];
         });
       }),
     );
 
-    return { entries: podiums.flat() };
+    // Le niveau et le palmarès montrés sont ceux du jour : la vitrine dit ce
+    // que l'animal est devenu, pas ce qu'il était ce dimanche-là.
+    const rows = podiums.flat();
+    const careers = await loadPetCareers(rows.map((row) => row.participant.petId));
+
+    return { entries: rows.map((row) => entry(row, careers)) };
   }),
 );

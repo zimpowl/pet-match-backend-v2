@@ -6,6 +6,7 @@ import {
   ContestStatus,
 } from "../models/contest";
 import { MeSource, NO_ME } from "../api/mappers";
+import { careerFrom, loadJudgeCareers, loadPetCareers } from "./careers";
 import { ContestPageRequest } from "../core/pagination";
 import { PAIRING_WINDOW, PairingCandidate } from "../core/pairing";
 import { listOrder } from "../core/ordering";
@@ -109,7 +110,16 @@ export async function loadMe(
     for (const petId of petIds) refs.push(ref.collection(PARTICIPANTS).doc(petId));
   }
 
-  const snaps = await db.getAll(...refs);
+  // Le palmarès du porteur est celui du jour : deux lectures de plus pour
+  // toute la page — le document du juré, et ceux de ses animaux — et plus un
+  // seul instantané gelé sur les participations.
+  const [snaps, judgeCareers, petCareers] = await Promise.all([
+    db.getAll(...refs),
+    loadJudgeCareers([userUid]),
+    loadPetCareers(petIds),
+  ]);
+  const judgeCareer = careerFrom(judgeCareers, userUid);
+
   for (const snap of snaps) {
     if (!snap.exists) continue;
     const contestUid = snap.ref.parent.parent?.id;
@@ -119,8 +129,12 @@ export async function loadMe(
     result.set(
       contestUid,
       snap.ref.parent.id === JUDGES ?
-        { ...current, judge: snap.data() as ContestJudgeDoc } :
-        { ...current, participant: snap.data() as ContestParticipantDoc },
+        { ...current, judge: snap.data() as ContestJudgeDoc, judgeCareer } :
+        {
+          ...current,
+          participant: snap.data() as ContestParticipantDoc,
+          petCareer: careerFrom(petCareers, snap.id),
+        },
     );
   }
 

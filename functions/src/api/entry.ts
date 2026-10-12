@@ -3,7 +3,8 @@ import { CONTESTS, PARTICIPANTS, db } from "../firebase";
 import { ContestDoc, ContestParticipantDoc } from "../models/contest";
 import { EntryRejection, rejectEntryChange } from "../core/joinRules";
 import { EntryChangeResponse } from "./contract";
-import { contestCard } from "./mappers";
+import { contestCard, NO_ME } from "./mappers";
+import { careerFrom, loadPetCareers } from "../data/careers";
 import { resolveDailyVotes } from "../data/dailyVotes";
 import {
   HttpError,
@@ -73,11 +74,14 @@ export const updateEntryPhotoHttp = onRequest({ cors: true }, (req, res) =>
       return { contest, participant: { ...participant, photoUrl } };
     });
 
+    const careers = await loadPetCareers([petUid]);
+
     return {
       dailyVotes: await resolveDailyVotes(userUid, now),
       contest: contestCard(contestUid, changed.contest, {
+        ...NO_ME,
         participant: changed.participant,
-        judge: null,
+        petCareer: careerFrom(careers, petUid),
       }),
     };
   }),
@@ -136,7 +140,7 @@ export const withdrawEntryHttp = onRequest({ cors: true }, (req, res) =>
       dailyVotes: await resolveDailyVotes(userUid, now),
       // Plus d'inscription : la carte revient au rôle `NONE`, et l'app y
       // retrouve le bouton « s'inscrire » sans rien recharger.
-      contest: contestCard(contestUid, contest, { participant: null, judge: null }),
+      contest: contestCard(contestUid, contest, NO_ME),
     };
   }),
 );

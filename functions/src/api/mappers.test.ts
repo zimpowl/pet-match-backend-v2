@@ -8,7 +8,9 @@ import {
 } from "../models/contest";
 import { PetDoc } from "../models/pet";
 import { UserDoc } from "../models/user";
+import { Career } from "../core/career";
 import {
+  MeSource,
   NO_ME,
   contestCard,
   dailyVotesWire,
@@ -52,8 +54,6 @@ function judge(overrides: Partial<ContestJudgeDoc> = {}): ContestJudgeDoc {
     userAvatarUrl: null,
     countryCode: "FR",
     registrationIndex: 8,
-    gradeAtEntry: 2,
-    statsAtContest: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
     winner: null,
     votesPerDay: [10, 10, 10, 3, 0, 0, 0],
     votes: 33,
@@ -81,8 +81,6 @@ function participant(overrides: Partial<ContestParticipantDoc> = {}): ContestPar
     hiddenAt: null,
     photoUrl: "https://placedog.net/300/300?id=42",
     registrationIndex: 8,
-    gradeAtEntry: 3,
-    statsAtContest: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
     elo: 1266.4,
     wins: 40,
     losses: 18,
@@ -96,6 +94,33 @@ function participant(overrides: Partial<ContestParticipantDoc> = {}): ContestPar
     ...overrides,
   };
 }
+
+/**
+ * Les palmarès du jour. Ils ne viennent plus du document de participation —
+ * une participation ne fige plus rien — mais de `pets/{petId}` et
+ * `users/{userUid}`, que l'appelant a lus avant d'appeler le mapper.
+ */
+const PET_CAREER: Career = {
+  level: 3,
+  stats: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
+};
+
+const JUDGE_CAREER: Career = {
+  level: 2,
+  stats: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
+};
+
+const asParticipant = (doc = participant()): MeSource => ({
+  ...NO_ME,
+  participant: doc,
+  petCareer: PET_CAREER,
+});
+
+const asJudge = (doc = judge()): MeSource => ({
+  ...NO_ME,
+  judge: doc,
+  judgeCareer: JUDGE_CAREER,
+});
 
 test("sans inscription, le bloc me est vide et ne ment pas", () => {
   assert.deepEqual(meWire(contest(), NO_ME), {
@@ -113,17 +138,17 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
   });
 });
 
-test("la slab close sert l'identité qui a signé, pas le profil vivant (D128)", () => {
-  const asParticipant = meWire(contest(), { participant: participant(), judge: null });
-  assert.deepEqual(asParticipant.bearer, {
+test("le nom et la photo restent ceux de l'inscription, le palmarès non (D128)", () => {
+  const mine = meWire(contest(), asParticipant());
+  assert.deepEqual(mine.bearer, {
     name: participant().petName,
     photoUrl: participant().photoUrl,
     photoRemoved: false,
     subtext: participant().petBreed,
   });
 
-  const asJudge = meWire(contest(), { participant: null, judge: judge() });
-  assert.deepEqual(asJudge.bearer, {
+  const theirs = meWire(contest(), asJudge());
+  assert.deepEqual(theirs.bearer, {
     name: judge().userName,
     photoUrl: judge().userAvatarUrl,
     photoRemoved: false,
@@ -131,17 +156,14 @@ test("la slab close sert l'identité qui a signé, pas le profil vivant (D128)",
   });
 
   // Une photo retirée par la modération n'est plus servie, mais elle existe.
-  const hidden = meWire(contest(), {
-    participant: participant({ hiddenAt: stamp(START) }),
-    judge: null,
-  });
+  const hidden = meWire(contest(), asParticipant(participant({ hiddenAt: stamp(START) })));
   assert.equal(hidden.bearer?.photoUrl, null);
   assert.equal(hidden.bearer?.photoRemoved, true);
   assert.equal(hidden.pet?.photoUrl, null);
 });
 
 test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
-  const me = meWire(contest(), { participant: null, judge: judge() });
+  const me = meWire(contest(), asJudge());
 
   assert.equal(me.role, "JUDGE");
   // 33 posés, 30 tranchés au dernier 18 h, 25 justes : les 3 derniers votes
@@ -156,10 +178,7 @@ test("en cours, seuls les votes du dernier 18 h sont jugés (D93)", () => {
 });
 
 test("à la clôture, tout ce qui est posé est jugé", () => {
-  const me = meWire(contest({ status: "CLOSED" }), {
-    participant: null,
-    judge: judge({ votes: 70, correctVotes: 52 }),
-  });
+  const me = meWire(contest({ status: "CLOSED" }), asJudge(judge({ votes: 70, correctVotes: 52 })));
 
   assert.deepEqual(me.votes, {
     cast: 70,
@@ -171,44 +190,35 @@ test("à la clôture, tout ce qui est posé est jugé", () => {
 });
 
 test("voter ne fait jamais chuter sa précision : le dénominateur ne bouge qu'à 18 h", () => {
-  const before = meWire(contest(), { participant: null, judge: judge() });
-  const afterVoting = meWire(contest(), {
-    participant: null,
-    judge: judge({ votes: 38 }),
-  });
+  const before = meWire(contest(), asJudge());
+  const afterVoting = meWire(contest(), asJudge(judge({ votes: 38 })));
 
   assert.equal(before.votes?.judged, afterVoting.votes?.judged);
   assert.equal(before.votes?.correct, afterVoting.votes?.correct);
 });
 
 test("l'ELO de mon animal suit la même règle d'instantané (D54)", () => {
-  const running = meWire(contest(), { participant: participant(), judge: null });
-  const closed = meWire(contest({ status: "CLOSED" }), {
-    participant: participant(),
-    judge: null,
-  });
+  const running = meWire(contest(), asParticipant());
+  const closed = meWire(contest({ status: "CLOSED" }), asParticipant());
 
   assert.equal(running.elo, 1251.2);
   assert.equal(closed.elo, 1266.4);
 });
 
 test("l'ELO n'est jamais seul : les votes reçus l'accompagnent (§4.9, D62)", () => {
-  const running = meWire(contest(), { participant: participant(), judge: null });
-  const closed = meWire(contest({ status: "CLOSED" }), {
-    participant: participant(),
-    judge: null,
-  });
+  const running = meWire(contest(), asParticipant());
+  const closed = meWire(contest({ status: "CLOSED" }), asParticipant());
 
   assert.equal(running.votesReceived, 34);
   assert.equal(closed.votesReceived, 40);
 });
 
 test("un juré n'a pas d'ELO (D17)", () => {
-  assert.equal(meWire(contest(), { participant: null, judge: judge() }).elo, 0);
+  assert.equal(meWire(contest(), asJudge()).elo, 0);
 });
 
 test("participant : le rôle porte l'animal, le rang est le sien", () => {
-  const me = meWire(contest(), { participant: participant(), judge: null });
+  const me = meWire(contest(), asParticipant());
 
   assert.equal(me.role, "PARTICIPANT");
   assert.equal(me.rank, 2);
@@ -221,25 +231,37 @@ test("participant : le rôle porte l'animal, le rang est le sien", () => {
   assert.equal(me.votes, null);
 });
 
-test("la slab dit ce que le porteur était ce jour-là, pas ce qu'il est devenu (D30)", () => {
-  const me = meWire(contest(), { participant: participant(), judge: null });
+test("le palmarès servi est celui du jour, jamais une copie gelée", () => {
+  // Une participation ne fige plus rien : le mapper ne lit que ce que
+  // l'appelant a chargé sur `pets/{petId}`, et c'est la seule source.
+  const me = meWire(contest(), asParticipant());
 
-  assert.equal(me.level, 3);
-  assert.deepEqual(me.career, { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 });
+  assert.equal(me.level, PET_CAREER.level);
+  assert.deepEqual(me.career, PET_CAREER.stats);
+
+  // Le même animal vu après une médaille de plus : la ligne suit, sans
+  // qu'aucun document de concours ait été réécrit.
+  const promoted = meWire(contest(), {
+    ...asParticipant(),
+    petCareer: { level: 4, stats: { ...PET_CAREER.stats, gold: 2 } },
+  });
+
+  assert.equal(promoted.level, 4);
+  assert.equal(promoted.career.gold, 2);
 });
 
 test("un juré emprunte son image au vainqueur, un participant jamais", () => {
-  const asJudge = meWire(contest(), {
-    participant: null,
-    judge: judge({ winner: { petId: "uno", name: "Uno", photoUrl: "http://p" } }),
-  });
+  const borrowed = meWire(
+    contest(),
+    asJudge(judge({ winner: { petId: "uno", name: "Uno", photoUrl: "http://p" } })),
+  );
 
-  assert.deepEqual(asJudge.winner, { petUid: "uno", name: "Uno", photoUrl: "http://p" });
-  assert.equal(meWire(contest(), { participant: participant(), judge: null }).winner, null);
+  assert.deepEqual(borrowed.winner, { petUid: "uno", name: "Uno", photoUrl: "http://p" });
+  assert.equal(meWire(contest(), asParticipant()).winner, null);
 });
 
 test("participant ET juré : le rôle est participant, les votes restent visibles", () => {
-  const me = meWire(contest(), { participant: participant(), judge: judge() });
+  const me = meWire(contest(), { ...asParticipant(), judge: judge(), judgeCareer: JUDGE_CAREER });
 
   assert.equal(me.role, "PARTICIPANT");
   assert.equal(me.votes?.cast, 33);
@@ -255,7 +277,7 @@ test("la carte ne renvoie que du brut : epoch ms, jamais de J-4", () => {
 });
 
 test("les lignes sortent avec les noms de champs de l'app", () => {
-  assert.deepEqual(participantRow(participant(), "CLOSED"), {
+  assert.deepEqual(participantRow(participant(), "CLOSED", PET_CAREER), {
     petUid: "heureux",
     ownerUid: "zimpo",
     number: 34,
@@ -270,13 +292,13 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     votesReceived: 40,
     rank: 2,
     registrationIndex: 8,
-    // De quoi imprimer l'étiquette d'identité du haut, gelée au jour de
-    // l'inscription (D30) : c'est ce que la slab dira dans trois mois.
+    // Le niveau et le palmarès du jour, lus sur l'animal : la ligne dit ce
+    // qu'il est maintenant, exactement comme sa fiche.
     level: 3,
     career: { contests: 6, bestRank: 2, gold: 1, silver: 2, bronze: 0 },
   });
 
-  assert.deepEqual(judgeRow(judge(), contest({ status: "CLOSED" }), 70), {
+  assert.deepEqual(judgeRow(judge(), contest({ status: "CLOSED" }), 70, JUDGE_CAREER), {
     userUid: "zimpo",
     number: 12,
     name: "Zimpo",
@@ -298,33 +320,33 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
 });
 
 test("l'ELO n'est pas arrondi côté serveur (D16)", () => {
-  assert.equal(participantRow(participant(), "CLOSED").elo, 1266.4);
+  assert.equal(participantRow(participant(), "CLOSED", PET_CAREER).elo, 1266.4);
 });
 
 test("en cours de concours, l'ELO affiché est celui du dernier 18 h (D54)", () => {
-  assert.equal(participantRow(participant(), "ACTIVE").elo, 1251.2);
-  assert.equal(participantRow(participant(), "ACTIVE").votesReceived, 34);
+  assert.equal(participantRow(participant(), "ACTIVE", PET_CAREER).elo, 1251.2);
+  assert.equal(participantRow(participant(), "ACTIVE", PET_CAREER).votesReceived, 34);
 });
 
 test("avant le premier 18 h, tout le monde est à 1200 et 0 vote reçu", () => {
   const fresh = participant({ eloSnapshot: DEFAULT_ELO, votesReceivedSnapshot: 0 });
 
-  assert.equal(participantRow(fresh, "ACTIVE").elo, DEFAULT_ELO);
-  assert.equal(participantRow(fresh, "ACTIVE").votesReceived, 0);
+  assert.equal(participantRow(fresh, "ACTIVE", PET_CAREER).elo, DEFAULT_ELO);
+  assert.equal(participantRow(fresh, "ACTIVE", PET_CAREER).votesReceived, 0);
 });
 
 test("un concours clos ne bouge plus : on lit le direct, il est définitif", () => {
-  assert.equal(participantRow(participant(), "CLOSED").elo, 1266.4);
-  assert.equal(participantRow(participant(), "CLOSED").votesReceived, 40);
+  assert.equal(participantRow(participant(), "CLOSED", PET_CAREER).elo, 1266.4);
+  assert.equal(participantRow(participant(), "CLOSED", PET_CAREER).votesReceived, 40);
 });
 
 test("le rang, lui, sort tel quel : c'est l'instantané de 18 h", () => {
-  assert.equal(participantRow(participant(), "ACTIVE").rank, 2);
-  assert.equal(participantRow(participant({ rank: null }), "ACTIVE").rank, null);
+  assert.equal(participantRow(participant(), "ACTIVE", PET_CAREER).rank, 2);
+  assert.equal(participantRow(participant({ rank: null }), "ACTIVE", PET_CAREER).rank, null);
 });
 
 test("une ligne de juré ne compte que ses votes jugés, jamais ceux du jour", () => {
-  const row = judgeRow(judge(), contest(), 70);
+  const row = judgeRow(judge(), contest(), 70, JUDGE_CAREER);
 
   // Gelés au dernier 18 h, comme l'ELO : 30 jugés, pas les 33 posés.
   assert.equal(row.votes, 30);
@@ -348,14 +370,14 @@ test("un juré repris du legacy n'a pas de répartition : la somme trahit le tot
   // La migration pose `votesPerDay` à zéro et garde le total (§10). C'est le
   // seul signe qui distingue « rien posé » de « on ne sait pas quand ».
   const legacy = judge({ votesPerDay: [0, 0, 0, 0, 0, 0, 0], votes: 40 });
-  const row = judgeRow(legacy, contest({ status: "CLOSED", maxVotesPerDay: 5 }), 40);
+  const row = judgeRow(legacy, contest({ status: "CLOSED", maxVotesPerDay: 5 }), 40, JUDGE_CAREER);
 
   assert.equal(row.castVotes, 40);
   assert.equal(row.votesPerDay.reduce((sum, value) => sum + value, 0), 0);
 });
 
 test("mon propre compteur de votes, lui, reste en direct : c'est mon budget", () => {
-  const me = meWire(contest(), { participant: null, judge: judge() });
+  const me = meWire(contest(), asJudge());
 
   assert.equal(me.votes?.cast, 33);
 });
