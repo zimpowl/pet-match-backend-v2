@@ -125,11 +125,19 @@ function fromProvider(value: unknown): string | null {
 }
 
 /**
- * Le profil n'est pas prêt à jouer. Deux manques, une seule porte : sans pseudo
- * le classement s'écrit en « Anonyme », et sans avatar la slab n'a pas de
- * visage. La règle vit ici et nulle part ailleurs — l'app la lit, elle ne la
- * recalcule pas.
+ * Le profil n'est pas prêt à jouer : **il manque le pseudo**, et lui seul. Sans
+ * lui le classement s'écrit en « Anonyme », ce qui ne nomme personne.
+ *
+ * L'avatar en faisait partie et n'en fait plus. Un juré se nomme, il ne se
+ * montre pas — la liste du jury n'a pas de vignettes, et c'est un choix (36
+ * comptes sur 364 ont une photo). Le réclamer bloquait la porte sur une chose
+ * dont aucun écran n'a besoin, et renvoyait au formulaire à chaque lancement
+ * qui ne l'avait pas donnée. L'animal, lui, garde sa photo obligatoire : c'est
+ * elle qu'on juge.
+ *
+ * La règle vit ici et nulle part ailleurs — l'app la lit, elle ne la recalcule
+ * pas.
  */
 function needsProfile(user: UserDoc): boolean {
-  return !user.nickname?.trim() || !user.avatarUrl;
+  return !user.nickname?.trim();
 }
