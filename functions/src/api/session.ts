@@ -24,11 +24,31 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
       req.body as unknown,
       req.headers.authorization,
     );
+    const body = (req.body ?? {}) as Record<string, unknown>;
     const ref = db.collection(USERS).doc(userUid);
     const snap = await ref.get();
 
     if (snap.exists) {
       const user = snap.data() as UserDoc;
+
+      // Un compte créé avant que l'app ne transmette l'identité du fournisseur
+      // n'a ni nom ni photo : on **comble ce qui manque**, jamais ce qui est
+      // déjà là. Sans ça, la reprise ne profiterait qu'aux comptes neufs, et
+      // tous ceux qui existent déjà garderaient un formulaire vide.
+      const patch: Partial<UserDoc> = {};
+      if (!user.name) {
+        const name = fromProvider(body.name);
+        if (name) patch.name = name;
+      }
+      if (!user.avatarUrl) {
+        const avatarUrl = fromProvider(body.avatarUrl);
+        if (avatarUrl) patch.avatarUrl = avatarUrl;
+      }
+      if (Object.keys(patch).length > 0) {
+        await ref.update(patch);
+        Object.assign(user, patch);
+      }
+
       return {
         uid: userUid,
         avatarUrl: user.avatarUrl ?? null,
@@ -51,7 +71,6 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
     // Google ou Apple viennent d'accorder se vit comme une formalité de plus.
     // Ils vont dans `name` et `avatarUrl`, jamais dans `nickname` — le pseudo
     // reste un choix, et c'est lui que `needsProfile` attend.
-    const body = (req.body ?? {}) as Record<string, unknown>;
     const bornAt = Timestamp.now();
     const created: UserDoc = {
       name: fromProvider(body.name) ?? "",
