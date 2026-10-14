@@ -16,3 +16,6 @@ pieces/
 functions/qr/
 
 .DS_Store
+
+# Les sauvegardes portent les données des joueurs : elles ne quittent jamais la machine.
+backup*/
