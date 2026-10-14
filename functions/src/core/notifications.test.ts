@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   composeClosing,
-  composeEvening,
+  composeGrade,
+  composeOpening,
   composeReminder,
+  composeVerification,
+  remainingToday,
   resolveLocale,
   shouldRemind,
 } from "./notifications";
@@ -11,125 +14,45 @@ import {
 const fr = resolveLocale(null);
 const THEME = "Concours d'été";
 
-test("la notification constate le sens, jamais le rang (§4.2 bis)", () => {
-  const up = composeEvening(
-    { theme: THEME, pet: { name: "Heureux", rank: 4, rankPrevious: 7 }, judge: null },
-    fr,
-  );
-
-  assert.equal(up?.title, "Heureux est monté au classement");
-  assert.equal(up?.body, "Concours « Concours d'été ». Venez découvrir son rang.");
-  // Aucun chiffre de classement ne doit fuiter : la tension est dans l'inconnu.
-  assert.doesNotMatch(`${up?.title} ${up?.body}`, /\d/);
-});
-
-test("descendre se dit, sans le maquiller", () => {
-  const down = composeEvening(
-    { theme: THEME, pet: { name: "Heureux", rank: 9, rankPrevious: 7 }, judge: null },
-    fr,
-  );
-
-  assert.equal(down?.title, "Heureux est descendu au classement");
-  assert.equal(down?.body, "Concours « Concours d'été ». Venez découvrir son rang.");
-});
-
-test("un rang immobile hors du podium ne notifie rien", () => {
-  assert.equal(
-    composeEvening(
-      { theme: THEME, pet: { name: "Heureux", rank: 12, rankPrevious: 12 }, judge: null },
-      fr,
-    ),
-    null,
-  );
-});
-
-test("sur le podium, tenir sa place est une nouvelle", () => {
-  const held = composeEvening(
-    { theme: THEME, pet: { name: "Uno", rank: 1, rankPrevious: 1 }, judge: null },
-    fr,
-  );
-
-  assert.equal(held?.title, "Uno garde sa place sur le podium");
-});
-
-test("on ne genre jamais l'animal", () => {
-  for (const name of ["Nala", "Mia", "Heureux"]) {
-    const news = composeEvening(
-      { theme: THEME, pet: { name, rank: 2, rankPrevious: 2 }, judge: null },
-      fr,
-    );
-    // « monté », « descendu », « garde sa place » : rien ne s'accorde avec l'animal.
-    assert.doesNotMatch(news?.title ?? "", /première|deuxième|montée|descendue/);
-  }
-});
-
-test("un animal non classé ne déclenche rien", () => {
-  assert.equal(
-    composeEvening(
-      { theme: THEME, pet: { name: "Heureux", rank: null, rankPrevious: null }, judge: null },
-      fr,
-    ),
-    null,
-  );
-});
-
-test("participant ET juré : une seule notification", () => {
-  const news = composeEvening(
-    {
-      theme: THEME,
-      pet: { name: "Heureux", rank: 4, rankPrevious: 7 },
-      judge: { rank: 2, rankPrevious: 5 },
-    },
-    fr,
-  );
-
-  assert.equal(news?.title, "Heureux est monté au classement");
-  assert.equal(
-    news?.body,
-    "Concours « Concours d'été ». Vous êtes également monté au jury." +
-      " Venez découvrir vos rangs.",
-  );
-});
-
-test("le juré seul a son propre titre", () => {
-  const news = composeEvening(
-    { theme: THEME, pet: null, judge: { rank: 9, rankPrevious: 6 } },
-    fr,
-  );
-
-  assert.equal(news?.title, "Vous êtes descendu au classement du jury");
-  assert.equal(news?.body, "Concours « Concours d'été ». Venez découvrir votre rang.");
-});
-
-test("le thème garde sa majuscule dans le titre de clôture", () => {
-  const news = composeClosing({ theme: "Pleine lune", petName: "Uno", wasJudge: false }, fr);
-  assert.equal(news?.title, "Le concours « Pleine lune » est clos");
-});
-
-test("la clôture ne dit que la clôture : ni sens, ni rang, ni médaille", () => {
+test("la clôture dit que c'est tombé, et rien de plus", () => {
   const both = composeClosing({ theme: THEME, petName: "Heureux", wasJudge: true }, fr);
   const pet = composeClosing({ theme: THEME, petName: "Heureux", wasJudge: false }, fr);
   const judge = composeClosing({ theme: THEME, petName: null, wasJudge: true }, fr);
 
-  assert.equal(both?.title, "Le concours « Concours d'été » est clos");
-  assert.equal(both?.body, "Le résultat de Heureux et le vôtre vous attendent.");
-  assert.equal(pet?.body, "Le résultat de Heureux vous attend.");
-  assert.equal(judge?.body, "Votre résultat de juré vous attend.");
-
   for (const news of [both, pet, judge]) {
-    assert.doesNotMatch(`${news?.title} ${news?.body}`, /\d|monté|descendu|or|médaille|ELO/);
+    assert.equal(news?.title, "Les résultats de « Concours d'été » sont tombés");
+    assert.equal(news?.body, "Venez découvrir le classement final.");
+    // Ni rang, ni sens, ni médaille : le dénouement est dans l'app.
+    assert.doesNotMatch(`${news?.title} ${news?.body}`, /\d|monté|descendu|médaille|ELO/);
   }
 });
 
-test("qui n'a ni animal ni vote sur ce concours n'est pas notifié", () => {
+test("qui n'a ni animal ni vote sur ce concours n'est pas notifié de la clôture", () => {
   assert.equal(composeClosing({ theme: THEME, petName: null, wasJudge: false }, fr), null);
 });
 
-test("le rappel de l'après-midi donne le seul chiffre permis : mon budget", () => {
-  const news = composeReminder({ theme: THEME, dailyCapacity: 10 }, fr);
+test("le concours qui commence invite à voter et à s'inscrire au suivant", () => {
+  const news = composeOpening({ theme: "Automne" }, fr);
 
-  assert.equal(news?.title, "Vos dix votes du jour expirent à 18 h");
-  assert.equal(news?.body, "Concours « Concours d'été ». Ce qui n'est pas posé est perdu.");
+  assert.equal(news.title, "Le concours « Automne » commence");
+  assert.equal(news.body, "Venez voter. Les inscriptions du suivant sont ouvertes.");
+});
+
+test("le rappel dit ce qui reste et ce qui se perd", () => {
+  const news = composeReminder({ theme: THEME, remaining: 5 }, fr);
+
+  assert.equal(news?.title, "Vos votes vous attendent");
+  assert.equal(
+    news?.body,
+    "Il vous en reste cinq pour « Concours d'été » avant 18 h. Après, ils sont perdus.",
+  );
+});
+
+test("ce qui reste est l'allocation du jour, bornée par le plafond", () => {
+  assert.equal(remainingToday({ votesCast: 20, maxVotesPerJudge: 70, dailyCapacity: 10 }), 10);
+  assert.equal(remainingToday({ votesCast: 66, maxVotesPerJudge: 70, dailyCapacity: 10 }), 4);
+  assert.equal(remainingToday({ votesCast: 70, maxVotesPerJudge: 70, dailyCapacity: 10 }), 0);
+  assert.equal(composeReminder({ theme: THEME, remaining: 0 }, fr), null);
 });
 
 test("on ne rappelle que le juré qui n'a rien posé aujourd'hui", () => {
@@ -151,21 +74,45 @@ test("un concours sans allocation ne rappelle rien", () => {
     shouldRemind({ votesToday: 0, votesCast: 0, maxVotesPerJudge: 0, dailyCapacity: 0 }),
     false,
   );
-  assert.equal(composeReminder({ theme: THEME, dailyCapacity: 0 }, fr), null);
+});
+
+test("un grade se dit en un nom, et invite à voir la progression", () => {
+  const pet = composeGrade({ level: 3, name: "Aguerri", petName: "Uno" }, fr);
+  const judge = composeGrade({ level: 2, name: "Confirmé", petName: null }, fr);
+
+  assert.equal(pet.title, "Uno devient Aguerri");
+  assert.equal(pet.body, "Venez voir sa progression.");
+  assert.equal(judge.title, "Vous devenez Confirmé");
+  assert.equal(judge.body, "Venez voir votre progression.");
+});
+
+test("le refus d'une pièce ne recopie jamais le motif tapé pendant la revue", () => {
+  const mine = composeVerification({ accepted: false, petName: null }, fr);
+  const pet = composeVerification({ accepted: false, petName: "Uno" }, fr);
+
+  assert.equal(mine.title, "Pièce non validée");
+  assert.equal(mine.body, "Votre pièce n'a pas pu être validée. Ouvrez l'app pour voir pourquoi.");
+  assert.equal(
+    pet.body,
+    "La pièce déposée pour Uno n'a pas pu être validée. Ouvrez l'app pour voir pourquoi.",
+  );
+});
+
+test("une identité validée ne genre pas l'animal", () => {
+  const pet = composeVerification({ accepted: true, petName: "Nala" }, fr);
+
+  assert.equal(pet.body, "L'identité de Nala est validée. Venez voir sa progression.");
 });
 
 test("aucun emoji, aucun point d'exclamation, aucune félicitation, aucun tutoiement", () => {
   const all = [
-    composeEvening(
-      {
-        theme: THEME,
-        pet: { name: "Heureux", rank: 4, rankPrevious: 7 },
-        judge: { rank: 2, rankPrevious: 5 },
-      },
-      fr,
-    ),
     composeClosing({ theme: THEME, petName: "Heureux", wasJudge: true }, fr),
-    composeReminder({ theme: THEME, dailyCapacity: 5 }, fr),
+    composeOpening({ theme: THEME }, fr),
+    composeReminder({ theme: THEME, remaining: 5 }, fr),
+    composeGrade({ level: 3, name: "Aguerri", petName: "Uno" }, fr),
+    composeGrade({ level: 3, name: "Aguerri", petName: null }, fr),
+    composeVerification({ accepted: true, petName: null }, fr),
+    composeVerification({ accepted: false, petName: null }, fr),
   ];
 
   for (const news of all) {
@@ -175,6 +122,6 @@ test("aucun emoji, aucun point d'exclamation, aucune félicitation, aucun tutoie
     assert.doesNotMatch(text, /bravo|félicitations|super|génial/i, text);
     // Frontières Unicode obligatoires : en JavaScript `\b` est ASCII, donc
     // `\bTes\b` matcherait « tes » à l'intérieur de « êtes ».
-    assert.doesNotMatch(text, /(?<!\p{L})(tu|tes|ton|ta|toi|tien)(?!\p{L})/iu, text);
+    assert.doesNotMatch(text, /(?<!\p{L})(tu|tes|ton|ta|toi|tien|viens)(?!\p{L})/iu, text);
   }
 });

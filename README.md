@@ -21,7 +21,7 @@ Le document de référence est **`~/AndroidStudioProjects/pet-match/REFONTE.md`*
 | §4.10 | Contrat d'affichage des slabs, au mot près |
 | §5 / §5.1 | Contrat d'API — les endpoints et leurs payloads |
 | §10 | Où on en est, et les pièges déjà payés |
-| tableau initial | Toutes les décisions D1 → D138, avec ce qui est annulé |
+| tableau initial | Toutes les décisions D1 → D140, avec ce qui est annulé |
 
 ### Où vit chaque règle, ici
 
@@ -104,12 +104,17 @@ Le reste — émulateur, seed, outils d'administration, déploiement — est dan
 - **Le registre des notifications n'est pas négociable** : aucun emoji, aucun
   point d'exclamation, aucune félicitation, **vouvoiement**. Le luxe ne
   complimente pas, il constate. Des tests le vérifient.
-- **La notification constate le changement, jamais le rang** : donner le rang
-  rendrait l'ouverture de l'app inutile. La clôture ne dit **que** la clôture.
-- **On ne genre jamais l'animal.** « Heureux tient la première place » accorde
-  avec « place », jamais avec l'animal. Toute formule gendrée est un bug.
+- **Une notification invite, elle n'informe pas** : venir voter, ne pas perdre
+  ses votes, venir voir où l'on en est. Jamais un rang : la clôture dit que
+  c'est tombé, l'app dit le reste. Les soirs de semaine ne notifient **rien** —
+  le classement se recalcule et se lit dans l'app, le résultat c'est le dimanche.
+- **On ne genre jamais l'animal.** « L'identité de Nala est validée » accorde
+  avec « identité », jamais avec l'animal. Toute formule gendrée est un bug.
 - **Une notification par joueur et par soir**, même s'il est à la fois
-  participant et juré. Un rang immobile hors du podium ne notifie **rien**.
+  participant et juré : le dimanche, qui reçoit la clôture ne reçoit pas
+  l'ouverture.
+- **Le motif d'un refus de pièce ne part jamais en notification** : il est tapé
+  pour l'écran d'identité, pas pour un volet de notification.
 - **Une requête de groupe de collections matche par nom de sous-collection**,
   sans regarder le parent. La protection est `contestOf()` de `collections.ts`.
   `challenges` a disparu le 2026-09-29 ; le garde reste, parce qu'il est vrai

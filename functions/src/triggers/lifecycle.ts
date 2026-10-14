@@ -35,14 +35,20 @@ import {
 import { JsonResponse, forbidden, respond } from "../http/respond";
 import {
   ClosingNews,
-  EveningNews,
   composeClosing,
-  composeEvening,
+  composeOpening,
   composeReminder,
+  remainingToday,
   resolveLocale,
   shouldRemind,
 } from "../core/notifications";
-import { Delivery, DeliveryReport, deliver, loadRecipients } from "../data/notify";
+import {
+  Delivery,
+  DeliveryReport,
+  deliver,
+  loadRecipients,
+  loadReachable,
+} from "../data/notify";
 
 /**
  * 18 h est la seule horloge du jeu (§4.2 bis). Un concours démarre à 18 h, il
@@ -74,12 +80,17 @@ export interface CycleReport {
 
 /**
  * Ce qu'il y a à annoncer, accumulé pendant que le cycle écrit. Un joueur ne
- * reçoit qu'**une** notification par concours et par soir, même s'il est à la
- * fois participant et juré : la clé de cette carte est son uid.
+ * reçoit qu'**une** notification par soir, même s'il est à la fois participant
+ * et juré : la clé de cette carte est son uid.
+ *
+ * Les soirs de semaine n'annoncent rien : le classement se recalcule et se lit
+ * dans l'app, mais le résultat, c'est le dimanche. Seuls la clôture et le
+ * concours qui commence font une notification.
  */
 interface Announcements {
-  readonly evening: Map<string, EveningNews>;
   readonly closing: Map<string, ClosingNews>;
+  /** Les concours activés ce soir : on peut y voter dès maintenant. */
+  readonly opened: { readonly contestUid: string; readonly theme: string }[];
   readonly contestUidByUser: Map<string, string>;
   /** L'animal sur lequel ouvrir le concours au tap, quand le joueur en a un. */
   readonly petUidByUser: Map<string, string>;
@@ -128,8 +139,8 @@ export async function runCycle(
   };
   const writes = batcher();
   const news: Announcements = {
-    evening: new Map(),
     closing: new Map(),
+    opened: [],
     contestUidByUser: new Map(),
     petUidByUser: new Map(),
   };
@@ -152,6 +163,7 @@ export async function runCycle(
     if (contest.status === "DRAFT") {
       if (startAt > nowMillis) continue;
       await activate(doc.ref, writes, report);
+      news.opened.push({ contestUid: doc.id, theme: contest.theme });
       continue;
     }
 
@@ -162,7 +174,7 @@ export async function runCycle(
 
     // Un concours qui n'a pas encore vu son premier 18 h n'a rien à figer.
     if (nowMillis < startAt + DAY_MILLIS) continue;
-    await snapshot(doc.ref, contest, nowMillis, writes, report, news);
+    await snapshot(doc.ref, nowMillis, writes, report);
   }
 
   await writes.flush();
@@ -254,11 +266,9 @@ async function scoreJudges(
  */
 async function snapshot(
   ref: FirebaseFirestore.DocumentReference,
-  contest: ContestDoc,
   nowMillis: number,
   writes: Batcher,
   report: CycleReport,
-  news: Announcements,
 ): Promise<void> {
   const [participants, judges] = await Promise.all([
     ref.collection(PARTICIPANTS).get(),
@@ -273,32 +283,8 @@ async function snapshot(
   // votes parfaits.
   const results = await scoreJudges(ref, participants);
 
-  const rankedPets = rankParticipants(ref, participants.docs, writes, true);
-  const rankedJudges = rankJudges(ref, judges.docs, results, writes, true);
-
-  for (const row of rankedPets) {
-    // Un joueur peut inscrire plusieurs animaux (D89) : on annonce le mieux
-    // classé, c'est la nouvelle qui compte pour lui.
-    const current = news.evening.get(row.ownerUid);
-    if (current?.pet && (current.pet.rank ?? Infinity) <= row.rank) continue;
-    news.evening.set(row.ownerUid, {
-      theme: contest.theme,
-      pet: { name: row.petName, rank: row.rank, rankPrevious: row.rankPrevious },
-      judge: current?.judge ?? null,
-    });
-    news.contestUidByUser.set(row.ownerUid, ref.id);
-    news.petUidByUser.set(row.ownerUid, row.petId);
-  }
-
-  for (const row of rankedJudges) {
-    const current = news.evening.get(row.userUid);
-    news.evening.set(row.userUid, {
-      theme: contest.theme,
-      pet: current?.pet ?? null,
-      judge: { rank: row.rank, rankPrevious: row.rankPrevious },
-    });
-    news.contestUidByUser.set(row.userUid, ref.id);
-  }
+  rankParticipants(ref, participants.docs, writes, true);
+  rankJudges(ref, judges.docs, results, writes, true);
 
   writes.set(ref, { snapshotAt: Timestamp.fromMillis(nowMillis) }, true);
   report.snapshotted.push(ref.id);
@@ -661,34 +647,45 @@ function deepLinkData(
 }
 
 /**
- * L'annonce. La clôture prime sur le résultat du soir : c'est le dénouement,
- * et un même joueur ne doit pas recevoir les deux.
+ * L'annonce du soir. Le dimanche seulement : ceux qui avaient un rôle dans le
+ * concours clos apprennent que les résultats sont tombés ; tous les autres,
+ * qu'un concours commence. Personne ne reçoit les deux.
  */
 async function announce(news: Announcements): Promise<DeliveryReport> {
-  const userUids = [...new Set([...news.closing.keys(), ...news.evening.keys()])];
-  const recipients = await loadRecipients(userUids);
   const deliveries: Delivery[] = [];
 
-  for (const userUid of userUids) {
+  const closingUids = [...news.closing.keys()];
+  const recipients = await loadRecipients(closingUids);
+  for (const userUid of closingUids) {
     const recipient = recipients.get(userUid);
-    if (!recipient) continue;
-
-    const locale = resolveLocale(recipient.locale);
     const closing = news.closing.get(userUid);
-    const notification = closing ?
-      composeClosing(closing, locale) :
-      composeEvening(news.evening.get(userUid) as EveningNews, locale);
+    if (!recipient || !closing) continue;
+
+    const notification = composeClosing(closing, resolveLocale(recipient.locale));
     if (!notification) continue;
 
     deliveries.push({
       recipient,
       notification,
-      data: deepLinkData(
-        news.contestUidByUser.get(userUid) ?? "",
-        closing ? "CLOSING" : "EVENING",
-        { petUid: news.petUidByUser.get(userUid), judgeUid: userUid },
-      ),
+      data: deepLinkData(news.contestUidByUser.get(userUid) ?? "", "CLOSING", {
+        petUid: news.petUidByUser.get(userUid),
+        judgeUid: userUid,
+      }),
     });
+  }
+
+  // Un concours commence le dimanche, et un seul : s'il y en avait deux, on
+  // n'annoncerait que le premier, une notification par soir suffit.
+  const opened = news.opened[0];
+  if (opened) {
+    for (const recipient of await loadReachable()) {
+      if (news.closing.has(recipient.userUid)) continue;
+      deliveries.push({
+        recipient,
+        notification: composeOpening({ theme: opened.theme }, resolveLocale(recipient.locale)),
+        data: deepLinkData(opened.contestUid, "OPENING"),
+      });
+    }
   }
 
   return deliver(deliveries);
@@ -729,8 +726,16 @@ export async function runReminders(nowMillis: number): Promise<DeliveryReport> {
       const recipient = recipients.get(judgeDoc.id);
       if (!recipient) continue;
 
+      const judge = judgeDoc.data() as ContestJudgeDoc;
       const notification = composeReminder(
-        { theme: contest.theme, dailyCapacity: contest.maxVotesPerDay },
+        {
+          theme: contest.theme,
+          remaining: remainingToday({
+            votesCast: judge.votes,
+            maxVotesPerJudge: contest.maxVotesPerJudge,
+            dailyCapacity: contest.maxVotesPerDay,
+          }),
+        },
         resolveLocale(recipient.locale),
       );
       if (!notification) continue;

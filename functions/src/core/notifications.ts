@@ -5,11 +5,12 @@
  * d'exclamation, aucune félicitation**. Le luxe ne complimente pas, il
  * constate. On vouvoie, comme un concours vouvoie ses concurrents.
  *
- * **La notification constate le changement, jamais le rang.** C'est le §4.2 bis :
- * « c'est le compte à rebours qui fait revenir, pas un aperçu — la tension est
- * dans l'inconnu ». Donner le rang rendrait l'ouverture de l'app inutile et
- * tuerait le rendez-vous de 18 h. Le fait est dans l'app ; la notification n'est
- * qu'une invitation à l'ouvrir.
+ * **Une notification invite, elle n'informe pas.** Trois raisons de revenir,
+ * pas une de plus : venir voter, ne pas perdre ses votes, venir voir où l'on
+ * en est. Jamais un rang ni un sens de variation — la tension est dans
+ * l'inconnu (§4.2 bis), et le fait est dans l'app. Le classement du soir se
+ * recalcule chaque jour et se lit dans l'app ; il ne se notifie plus : le
+ * résultat, c'est le dimanche.
  *
  * Le thème est toujours **cité**, jamais accolé nu à un verbe : les thèmes
  * réels sont « Pleine lune », « Cadrage serré », et « Pleine lune est clos »
@@ -28,43 +29,20 @@ export interface Notification {
   readonly body: string;
 }
 
-export interface Standing {
-  readonly rank: number | null;
-  readonly rankPrevious: number | null;
-}
-
-export interface EveningNews {
-  readonly theme: string;
-  readonly pet: (Standing & { readonly name: string }) | null;
-  readonly judge: Standing | null;
-}
-
 export interface ClosingNews {
   readonly theme: string;
   readonly petName: string | null;
   readonly wasJudge: boolean;
 }
 
-export interface ReminderNews {
+export interface OpeningNews {
   readonly theme: string;
-  readonly dailyCapacity: number;
 }
 
-type Direction = "UP" | "DOWN" | "HELD_PODIUM" | "NOTHING";
-
-/**
- * Un rang immobile **hors du podium** n'est pas une nouvelle : rien n'a bougé à
- * l'écran, donc « venez découvrir votre rang » mentirait. Sur le podium, si —
- * « tient-il encore sa place » est une vraie tension.
- */
-function direction(standing: Standing | null): Direction {
-  if (!standing || standing.rank === null) return "NOTHING";
-  const previous = standing.rankPrevious;
-  if (previous === null || previous === standing.rank) {
-    return standing.rank <= 3 ? "HELD_PODIUM" : "NOTHING";
-  }
-  // Le rang baisse quand on progresse.
-  return previous > standing.rank ? "UP" : "DOWN";
+export interface ReminderNews {
+  readonly theme: string;
+  /** Ce qui peut encore être posé aujourd'hui : l'allocation, bornée par le plafond. */
+  readonly remaining: number;
 }
 
 /**
@@ -85,112 +63,53 @@ export function resolveLocale(raw: string | null | undefined): Locale {
 }
 
 /**
- * Le résultat du soir. Un joueur ne reçoit qu'**une** notification, même s'il
- * est à la fois participant et juré : son animal prend le titre — c'est
- * l'accroche la plus forte — et son jury tient dans le corps. Un assidu en
- * reçoit environ six par semaine ; séparer les rôles en ferait onze, et le
- * §8 point 6 signale déjà neuf comme un risque.
- */
-export function composeEvening(news: EveningNews, locale: Locale): Notification | null {
-  void locale;
-  const pet = direction(news.pet);
-  const judge = direction(news.judge);
-  if (pet === "NOTHING" && judge === "NOTHING") return null;
-
-  if (pet !== "NOTHING" && news.pet) {
-    const also = judge === "NOTHING" ? null : judgeClause(judge);
-    const invitation = also ? "Venez découvrir vos rangs." : "Venez découvrir son rang.";
-    return {
-      title: petTitle(news.pet.name, pet),
-      body: [`${contestName(news.theme)}.`, also, invitation]
-        .filter((part): part is string => part !== null)
-        .join(" "),
-    };
-  }
-
-  return {
-    title: judgeTitle(judge),
-    body: `${contestName(news.theme)}. Venez découvrir votre rang.`,
-  };
-}
-
-/**
- * La clôture. On dit **seulement** que le concours est clos : c'est le
- * dénouement, et en révéler quoi que ce soit — sens, rang, médaille — l'évente.
- * Le juré a une slab à chaque clôture, médaille ou pas (D64), donc le message
- * est le même pour tout le monde.
+ * Le dimanche, à qui avait un rôle dans le concours qui se termine. On dit
+ * seulement que c'est tombé : le dénouement est dans l'app, où la story
+ * l'attend. Le même message pour l'animal et pour le juré — les deux
+ * résultats sont au même endroit.
  */
 export function composeClosing(news: ClosingNews, locale: Locale): Notification | null {
   void locale;
   if (!news.petName && !news.wasJudge) return null;
 
-  const waiting =
-    news.petName && news.wasJudge ?
-      `Le résultat de ${news.petName} et le vôtre vous attendent.` :
-      news.petName ?
-        `Le résultat de ${news.petName} vous attend.` :
-        "Votre résultat de juré vous attend.";
-
-  return { title: `Le concours ${quoted(news.theme)} est clos`, body: waiting };
+  return {
+    title: `Les résultats de ${quoted(news.theme)} sont tombés`,
+    body: "Venez découvrir le classement final.",
+  };
 }
 
 /**
- * Le rappel de l'après-midi, quelques heures avant la bascule. Envoyé **au seul
- * juré qui n'a rien posé aujourd'hui** : l'allocation ne se cumule pas, ce qui
- * n'est pas posé avant 18 h est perdu (D37). C'est le seul endroit où un
- * chiffre est donné, et c'est légitime — c'est son budget, pas un classement.
+ * Le dimanche, à tous les autres : un concours commence, on peut voter, et
+ * le suivant prend déjà les inscriptions. Qui reçoit la clôture ne reçoit pas
+ * celle-ci — une notification par personne et par soir.
+ */
+export function composeOpening(news: OpeningNews, locale: Locale): Notification {
+  void locale;
+  return {
+    title: `Le concours ${quoted(news.theme)} commence`,
+    body: "Venez voter. Les inscriptions du suivant sont ouvertes.",
+  };
+}
+
+/**
+ * Le rappel de l'après-midi, au seul juré qui n'a rien posé aujourd'hui :
+ * l'allocation ne se cumule pas, ce qui n'est pas posé avant 18 h est perdu
+ * (D37). C'est le seul chiffre donné — son budget, pas un classement.
  */
 export function composeReminder(news: ReminderNews, locale: Locale): Notification | null {
   void locale;
-  if (news.dailyCapacity <= 0) return null;
+  if (news.remaining <= 0) return null;
 
   return {
-    title: `Vos ${spell(news.dailyCapacity)} votes du jour expirent à 18 h`,
-    body: `${contestName(news.theme)}. Ce qui n'est pas posé est perdu.`,
+    title: "Vos votes vous attendent",
+    body:
+      `Il vous en reste ${spell(news.remaining)} pour ${quoted(news.theme)} avant 18 h.` +
+      " Après, ils sont perdus.",
   };
 }
 
 function quoted(theme: string): string {
   return `« ${theme.trim()} »`;
-}
-
-/** Le thème cité, pour qu'aucun verbe ne s'y accole directement. */
-function contestName(theme: string): string {
-  return `Concours ${quoted(theme)}`;
-}
-
-/** Accordé avec « place » ou « classement », donc jamais avec l'animal. */
-function petTitle(name: string, moved: Direction): string {
-  switch (moved) {
-  case "UP":
-    return `${name} est monté au classement`;
-  case "DOWN":
-    return `${name} est descendu au classement`;
-  default:
-    return `${name} garde sa place sur le podium`;
-  }
-}
-
-function judgeTitle(moved: Direction): string {
-  switch (moved) {
-  case "UP":
-    return "Vous êtes monté au classement du jury";
-  case "DOWN":
-    return "Vous êtes descendu au classement du jury";
-  default:
-    return "Vous gardez votre place sur le podium du jury";
-  }
-}
-
-function judgeClause(moved: Direction): string {
-  switch (moved) {
-  case "UP":
-    return "Vous êtes également monté au jury.";
-  case "DOWN":
-    return "Vous avez reculé au jury.";
-  default:
-    return "Vous gardez votre place sur le podium du jury.";
-  }
 }
 
 /** Les petits nombres s'écrivent en lettres. */
@@ -218,6 +137,15 @@ export function shouldRemind(input: {
   return input.votesCast < input.maxVotesPerJudge;
 }
 
+/** Ce qu'un juré peut encore poser aujourd'hui : l'allocation, sans dépasser le plafond. */
+export function remainingToday(input: {
+  readonly votesCast: number;
+  readonly maxVotesPerJudge: number;
+  readonly dailyCapacity: number;
+}): number {
+  return Math.max(0, Math.min(input.dailyCapacity, input.maxVotesPerJudge - input.votesCast));
+}
+
 /**
  * Les nouvelles **personnelles** : ce qui arrive au dossier d'un joueur, et
  * qu'aucun écran ne lui apprendra s'il n'ouvre pas l'app. Elles ne parlent
@@ -243,19 +171,15 @@ export interface SuspensionNews {
 
 export interface VerificationNews {
   readonly accepted: boolean;
-  readonly reason: string | null;
   readonly petName: string | null;
 }
 
 export function composeGrade(news: GradeNews, locale: Locale): Notification {
   void locale;
-  const who = news.petName ?? "Vous";
-  const verb = news.petName ? "atteint" : "atteignez";
-
-  return {
-    title: `Grade ${news.level} · ${news.name}`,
-    body: `${who} ${verb} le grade ${news.level}. Le dossier en garde la date.`,
-  };
+  if (news.petName) {
+    return { title: `${news.petName} devient ${news.name}`, body: "Venez voir sa progression." };
+  }
+  return { title: `Vous devenez ${news.name}`, body: "Venez voir votre progression." };
 }
 
 /**
@@ -289,20 +213,27 @@ export function composeSuspension(news: SuspensionNews, locale: Locale): Notific
 /**
  * Le dépôt d'une pièce n'a aucun écho aujourd'hui : on la dépose et on attend
  * sans jamais rien savoir. C'est la nouvelle la plus attendue des quatre.
+ *
+ * Le refus ne recopie **jamais** le motif : il est tapé à la main pendant la
+ * revue, pour l'écran d'identité, et lu dans un volet de notification il
+ * sonnait comme une note interne. L'app le montre, à sa place.
  */
 export function composeVerification(news: VerificationNews, locale: Locale): Notification {
   void locale;
-  const subject = news.petName ?? "Votre identité";
-
   if (news.accepted) {
     return {
       title: "Identité confirmée",
-      body: `${subject} est confirmée. Le grade 1 s'ouvre.`,
+      body: news.petName ?
+        `L'identité de ${news.petName} est validée. Venez voir sa progression.` :
+        "Votre identité est validée. Venez voir votre progression.",
     };
   }
 
   return {
-    title: "Pièce refusée",
-    body: news.reason ?? "La pièce déposée n'a pas pu être lue. Vous pouvez en déposer une autre.",
+    title: "Pièce non validée",
+    body: news.petName ?
+      `La pièce déposée pour ${news.petName} n'a pas pu être validée.` +
+        " Ouvrez l'app pour voir pourquoi." :
+      "Votre pièce n'a pas pu être validée. Ouvrez l'app pour voir pourquoi.",
   };
 }

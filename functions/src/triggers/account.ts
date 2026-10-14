@@ -41,7 +41,7 @@ export const onUserChanged = onDocumentUpdated(`${USERS}/{userUid}`, async (even
     news.push({
       userUid,
       kind: "VERIFICATION",
-      notification: composeVerification({ accepted: true, reason: null, petName: null }, locale),
+      notification: composeVerification({ accepted: true, petName: null }, locale),
     });
 
     const grade = raiseGrade(after.grade, computeGradeLevel(after.stats, true), Timestamp.now());
@@ -92,7 +92,7 @@ export const onPetChanged = onDocumentUpdated(`${PETS}/{petUid}`, async (event) 
     news.push({
       userUid,
       kind: "VERIFICATION",
-      notification: composeVerification({ accepted: true, reason: null, petName }, locale),
+      notification: composeVerification({ accepted: true, petName }, locale),
     });
 
     const grade = raiseGrade(after.grade, computeGradeLevel(after.stats, true), Timestamp.now());
@@ -139,7 +139,7 @@ export const onVerificationReviewed = onDocumentUpdated(
         userUid: after.userUid,
         kind: "VERIFICATION",
         notification: composeVerification(
-          { accepted: false, reason: after.reason, petName },
+          { accepted: false, petName },
           resolveLocale(null),
         ),
       },

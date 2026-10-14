@@ -39,9 +39,10 @@ un flyer s'imprime une fois — et `reports`, `verifications`, `backup`,
 
 | Événement | Notification | Déclenché par |
 |---|---|---|
-| Résultat du soir (18 h) | oui | `dailyCycle` |
-| Clôture d'un concours | oui | `dailyCycle` |
-| Rappel de vote (15 h) | oui | `dailyReminder` |
+| Résultats du concours clos (dimanche 18 h), à qui y avait un rôle | oui | `dailyCycle` |
+| Concours qui commence (dimanche 18 h), à tous les autres | oui | `dailyCycle` |
+| Classement du soir (lundi–samedi) | **non** — il se lit dans l'app | `dailyCycle` |
+| Rappel de vote (15 h), au juré qui n'a rien posé | oui | `dailyReminder` |
 | **Niveau atteint** | oui | `grade.level` monte |
 | **Identité confirmée** | oui | `isVerified` / `verifiedAt` |
 | **Pièce refusée** | oui | demande passée à `REJECTED` |
@@ -56,7 +57,7 @@ jeu : elles disent ce qui est arrivé à un compte, et aucun écran ne l'apprend
 
 Dans les réglages de l'app, stockés dans `users/{uid}.notifications` :
 
-- **Résultats du soir** — coupe le classement de 18 h et la clôture.
+- **Résultats** — coupe les deux messages du dimanche.
 - **Rappel de vote** — coupe le mot de 15 h.
 
 Les nouvelles du dossier **partent toujours**, quels que soient ces deux

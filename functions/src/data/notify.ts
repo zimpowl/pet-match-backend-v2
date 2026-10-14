@@ -39,6 +39,24 @@ export async function loadRecipients(
   return result;
 }
 
+/**
+ * Tous ceux qu'on peut joindre : un jeton, et rien d'autre. Pour l'annonce
+ * du dimanche, qui ne parle à personne en particulier.
+ */
+export async function loadReachable(): Promise<Recipient[]> {
+  const snaps = await db.collection(USERS).where("fcmToken", "!=", null).get();
+  return snaps.docs.map((snap) => {
+    const user = snap.data() as UserDoc;
+    return {
+      userUid: snap.id,
+      fcmToken: user.fcmToken ?? null,
+      locale: user.locale ?? null,
+      results: user.notifications?.results ?? true,
+      reminders: user.notifications?.reminders ?? true,
+    };
+  });
+}
+
 export interface Delivery {
   readonly recipient: Recipient;
   readonly notification: Notification;
@@ -56,17 +74,18 @@ export interface DeliveryReport {
  * Ce que le joueur a demandé à recevoir. Un refus n'est pas un échec : il ne
  * compte ni dans `failed` ni dans `withoutToken`, il ne part simplement pas.
  *
- * Les deux interrupteurs ne couvrent que le jeu : le résultat du soir et le
- * rappel de l'après-midi. **Ce qui arrive au dossier passe toujours** — on ne
- * choisit pas d'ignorer qu'une photo a été retirée ou qu'un compte est
- * suspendu, et aucun écran ne l'apprendra à qui n'ouvre pas l'app.
+ * Les deux interrupteurs ne couvrent que le jeu : le dimanche (résultats et
+ * concours qui commence) et le rappel de l'après-midi. **Ce qui arrive au
+ * dossier passe toujours** — on ne choisit pas d'ignorer qu'une photo a été
+ * retirée ou qu'un compte est suspendu, et aucun écran ne l'apprendra à qui
+ * n'ouvre pas l'app.
  */
 function wanted(delivery: Delivery): boolean {
   switch (delivery.data.kind) {
   case "REMINDER":
     return delivery.recipient.reminders;
-  case "EVENING":
   case "CLOSING":
+  case "OPENING":
     return delivery.recipient.results;
   default:
     return true;
@@ -104,7 +123,7 @@ export async function deliver(deliveries: readonly Delivery[]): Promise<Delivery
           notification: {
             sound: "default",
             // Deux canaux : le joueur doit pouvoir couper le rappel de
-            // l'après-midi sans perdre le résultat de 18 h.
+            // l'après-midi sans perdre les résultats du dimanche.
             channelId: delivery.data.kind === "REMINDER" ?
               "petmatch_reminders" :
               "petmatch_results",
@@ -156,8 +175,8 @@ export interface PersonalNews {
 /**
  * Une nouvelle personnelle part par la notification, et seulement par elle. La
  * notification d'un fait qui concerne le dossier part toujours : elle n'est pas
- * soumise aux interrupteurs des réglages, qui ne gouvernent que le résultat du
- * soir et le rappel de l'après-midi (voir `wanted`).
+ * soumise aux interrupteurs des réglages, qui ne gouvernent que le dimanche et
+ * le rappel de l'après-midi (voir `wanted`).
  */
 export async function announcePersonal(
   news: readonly PersonalNews[],
