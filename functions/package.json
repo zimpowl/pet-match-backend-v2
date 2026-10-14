@@ -21,7 +21,8 @@
     "verifications": "tsc && node lib/admin/verifications.js",
     "retention": "tsc && node lib/admin/retention.js",
     "unfreeze": "tsc && node lib/admin/unfreeze.js",
-    "anonymous": "tsc && node lib/admin/anonymous.js"
+    "anonymous": "tsc && node lib/admin/anonymous.js",
+    "onboarding": "tsc && node lib/admin/onboarding.js"
   },
   "engines": {
     "node": "24"
