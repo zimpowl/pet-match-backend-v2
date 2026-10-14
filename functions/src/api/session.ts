@@ -5,6 +5,7 @@ import { UserDoc } from "../models/user";
 import { JsonResponse, Query, respond } from "../http/respond";
 import { callerUid } from "../http/identity";
 import { isSuspended } from "../core/suspension";
+import { fromProvider } from "../core/provider";
 
 /**
  * Le premier appel après l'authentification Firebase : il crée le joueur s'il
@@ -107,22 +108,6 @@ export const getOrCreateHttp = onRequest({ cors: true }, (req, res) =>
   }),
 );
 
-/**
- * Ce que le fournisseur a donné, quand ça vaut la peine d'être gardé.
- *
- * Une identité Apple masquée arrive sous le nom **« Anonyme »** : le poser dans
- * le formulaire reviendrait à proposer ce pseudo-là par défaut, et un
- * classement d'Anonymes ne dit rien. Les chaînes vides tombent pour la même
- * raison — mieux vaut un champ vide qu'un champ à effacer.
- */
-const ANONYMOUS = ["anonyme", "anonymous", "unknown"];
-
-function fromProvider(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  return ANONYMOUS.includes(trimmed.toLowerCase()) ? null : trimmed;
-}
 
 /**
  * Le profil n'est pas prêt à jouer : **il manque le pseudo**, et lui seul. Sans

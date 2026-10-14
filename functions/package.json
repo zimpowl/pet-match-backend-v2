@@ -20,7 +20,8 @@
     "reports": "tsc && node lib/admin/reports.js",
     "verifications": "tsc && node lib/admin/verifications.js",
     "retention": "tsc && node lib/admin/retention.js",
-    "unfreeze": "tsc && node lib/admin/unfreeze.js"
+    "unfreeze": "tsc && node lib/admin/unfreeze.js",
+    "anonymous": "tsc && node lib/admin/anonymous.js"
   },
   "engines": {
     "node": "24"
