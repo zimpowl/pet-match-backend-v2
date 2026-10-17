@@ -84,6 +84,20 @@ export interface ContestParticipantDoc {
    */
   eloSnapshot: number;
   votesReceivedSnapshot: number;
+  /**
+   * Les duels joués **au dernier 18 h**, gelés avec l'ELO : la part de
+   * victoires affichée sur la carte se lit avec `votesReceivedSnapshot`, et
+   * mélanger un compteur vif à un compteur gelé la ferait mentir. Absent des
+   * participations nées avant le champ : la carte n'affiche alors rien.
+   */
+  duelsSnapshot?: number;
+  /**
+   * Qui a partagé la carte de cette participation, une entrée par personne,
+   * propriétaire compris — c'est ce qui allume son bouton. Le compteur, lui,
+   * ne compte que les autres. Jamais servi tel quel : une liste d'identifiants
+   * n'a rien à faire chez le lecteur.
+   */
+  sharedBy?: string[];
   rank: number | null;
   rankPrevious: number | null;
   createdAt: firestore.Timestamp;

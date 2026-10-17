@@ -141,6 +141,7 @@ export const getPetHttp = onRequest({ cors: true }, (req, res) =>
       contests: shelf.map((entry) =>
         contestCard(entry.contest.uid, entry.contest.doc, {
           ...NO_ME,
+          viewerUid: userUid,
           participant: entry.participant,
           petCareer: careerOf(pet.doc),
         }),

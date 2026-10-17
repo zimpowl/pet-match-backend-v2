@@ -56,7 +56,7 @@ import {
  * job pour tous les concours, sept exécutions par cycle.
  *
  * Ce job est le **seul écrivain** des instantanés — `rank`, `rankPrevious`,
- * `eloSnapshot`, `votesReceivedSnapshot`, `votesSnapshot`, `snapshotAt`. Les
+ * `eloSnapshot`, `votesReceivedSnapshot`, `duelsSnapshot`, `votesSnapshot`, `snapshotAt`. Les
  * endpoints d'écriture ne touchent jamais ces champs, et rien ne recalcule un
  * rang à la lecture : le champ `rank` *est* l'instantané (D54).
  *
@@ -494,6 +494,7 @@ function rankParticipants(
           {
             eloSnapshot: row.data.elo,
             votesReceivedSnapshot: row.data.votesReceived,
+            duelsSnapshot: row.data.duels,
           } :
           {}),
       },

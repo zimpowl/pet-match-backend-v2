@@ -64,8 +64,8 @@ export function resolveLocale(raw: string | null | undefined): Locale {
 
 /**
  * Le dimanche, à qui avait un rôle dans le concours qui se termine. On dit
- * seulement que c'est tombé : le dénouement est dans l'app, où la story
- * l'attend. Le même message pour l'animal et pour le juré — les deux
+ * seulement que c'est tombé : le dénouement est dans l'app, sur le concours
+ * et ses cartes. Le même message pour l'animal et pour le juré — les deux
  * résultats sont au même endroit.
  */
 export function composeClosing(news: ClosingNews, locale: Locale): Notification | null {

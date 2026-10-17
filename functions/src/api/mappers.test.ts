@@ -18,6 +18,7 @@ import {
   judgeRow,
   meWire,
   participantRow,
+  shareWire,
   petProfile,
 } from "./mappers";
 import { DAY_MILLIS } from "../core/allocation";
@@ -132,6 +133,9 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
     votes: null,
     elo: 0,
     votesReceived: 0,
+    duels: null,
+    shares: 0,
+    sharedByMe: false,
     level: 0,
     career: { contests: 0, bestRank: null, gold: 0, silver: 0, bronze: 0 },
     winner: null,
@@ -290,6 +294,9 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     photoRemoved: false,
     elo: 1266.4,
     votesReceived: 40,
+    duels: 58,
+    shares: 0,
+    sharedByMe: false,
     rank: 2,
     registrationIndex: 8,
     // Le niveau et le palmarès du jour, lus sur l'animal : la ligne dit ce
@@ -464,4 +471,30 @@ test("judgeSince retombe sur la création si le juré n'a jamais jugé", () => {
   const wire = judgeProfile("zimpo", user);
   assert.equal(wire.judgeSince, START - 600 * DAY_MILLIS);
   assert.equal(wire.number, 0);
+});
+
+test("la part de victoires se lit sur des duels gelés comme les votes reçus", () => {
+  assert.equal(participantRow(participant(), "CLOSED", PET_CAREER).duels, 58);
+  // Avant le premier instantané, rien plutôt qu'un vif mêlé à un gelé.
+  assert.equal(participantRow(participant(), "ACTIVE", PET_CAREER).duels, null);
+  assert.equal(
+    participantRow(participant({ duelsSnapshot: 47 }), "ACTIVE", PET_CAREER).duels,
+    47,
+  );
+});
+
+test("un partage compte une fois par personne, et jamais le propriétaire", () => {
+  const shared = participant({ sharedBy: ["zimpo", "lea", "tom"] });
+  // zimpo est le propriétaire : il allume son bouton sans compter.
+  assert.deepEqual(shareWire(shared, "zimpo"), { shares: 2, sharedByMe: true });
+  assert.deepEqual(shareWire(shared, "lea"), { shares: 2, sharedByMe: true });
+  assert.deepEqual(shareWire(shared, "max"), { shares: 2, sharedByMe: false });
+  assert.deepEqual(shareWire(shared, null), { shares: 2, sharedByMe: false });
+  assert.deepEqual(shareWire(participant(), "lea"), { shares: 0, sharedByMe: false });
+});
+
+test("la ligne dit au lecteur s'il a déjà partagé", () => {
+  const row = participantRow(participant({ sharedBy: ["lea"] }), "CLOSED", PET_CAREER, "lea");
+  assert.equal(row.shares, 1);
+  assert.equal(row.sharedByMe, true);
 });

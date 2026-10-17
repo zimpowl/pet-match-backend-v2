@@ -51,7 +51,7 @@ export const getContestsHttp = onRequest({ cors: true }, (req, res) =>
 
     const prefetched = page.contests.map((contest) => ({
       contest,
-      me: me.get(contest.uid) ?? NO_ME,
+      me: { ...(me.get(contest.uid) ?? NO_ME), viewerUid: userUid },
     }));
 
     return {
@@ -90,7 +90,7 @@ export const getContestHttp = onRequest({ cors: true }, (req, res) =>
       loadJudges(contest),
     ]);
 
-    const mine = me.get(contest.uid) ?? NO_ME;
+    const mine = { ...(me.get(contest.uid) ?? NO_ME), viewerUid: userUid };
 
     // Les médailles affichées sur une ligne sont celles du jour : une lecture
     // par animal en lice et par juré listé, groupées en deux allers-retours.
@@ -103,7 +103,7 @@ export const getContestHttp = onRequest({ cors: true }, (req, res) =>
       dailyVotes: await resolveDailyVotes(userUid, now, [{ contest, me: mine }]),
       contest: contestCard(contest.uid, contest.doc, mine),
       participants: participants.map((row) =>
-        participantRow(row, contest.doc.status, careerFrom(petCareers, row.petId)),
+        participantRow(row, contest.doc.status, careerFrom(petCareers, row.petId), userUid),
       ),
       judges: judges.map((row) =>
         judgeRow(

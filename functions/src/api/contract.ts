@@ -83,6 +83,11 @@ export interface ContestMeWire {
    * d'apparitions. Gelé comme l'ELO.
    */
   votesReceived: number;
+  /** Les duels gelés avec l'ELO, pour la part de victoires ; null sans instantané. */
+  duels: number | null;
+  /** Voir `ShareWire`. Zéro et faux sans participation. */
+  shares: number;
+  sharedByMe: boolean;
   /**
    * Ce que j'étais **le jour de l'inscription**, figé pour toujours (D30). La
    * slab est un objet de collection : celle d'il y a trois mois doit dire
@@ -137,10 +142,24 @@ export interface ParticipantRowWire {
   photoUrl: string | null;
   elo: number;
   votesReceived: number;
+  /** Voir `ShareWire` : de quoi dire la part de victoires et les partages. */
+  duels: number | null;
+  shares: number;
+  sharedByMe: boolean;
   rank: number | null;
   registrationIndex: number;
   level: number;
   career: StatsWire;
+}
+
+/**
+ * Ce qu'une carte dit de son partage. `shares` compte **les autres** qui l'ont
+ * partagée, chacun une fois : partager vingt fois sa propre carte ne gonfle
+ * rien. `sharedByMe` allume le bouton du lecteur, propriétaire compris.
+ */
+export interface ShareWire {
+  shares: number;
+  sharedByMe: boolean;
 }
 
 export interface JudgeRowWire {

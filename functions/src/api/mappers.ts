@@ -17,6 +17,7 @@ import {
   JudgeWire,
   ParticipantRowWire,
   PetWire,
+  ShareWire,
   StatsWire,
 } from "./contract";
 import { toMillisOrZero, toMillis } from "../core/time";
@@ -37,6 +38,8 @@ import { Career, EMPTY_CAREER } from "../core/career";
  * c'est l'appelant qui les charge, en un aller-retour pour toute la page.
  */
 export interface MeSource {
+  /** Celui qui lit, pour dire s'il a déjà partagé la carte. */
+  readonly viewerUid?: string | null;
   readonly participant: ContestParticipantDoc | null;
   readonly judge: ContestJudgeDoc | null;
   readonly petCareer: Career;
@@ -80,6 +83,8 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       votesReceived: contest.status === "CLOSED" ?
         participant.votesReceived :
         participant.votesReceivedSnapshot ?? 0,
+      duels: frozenDuels(participant, contest.status),
+      ...shareWire(participant, source.viewerUid ?? null),
       level: source.petCareer.level,
       career: stats(source.petCareer.stats),
       // Un participant a sa propre photo : il n'emprunte rien au vainqueur.
@@ -103,6 +108,9 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
       // Pas d'ELO pour les jurés (D17), et rien de reçu : ils donnent.
       elo: 0,
       votesReceived: 0,
+      duels: null,
+      shares: 0,
+      sharedByMe: false,
       level: source.judgeCareer.level,
       career: stats(source.judgeCareer.stats),
       winner: judge.winner ?
@@ -124,6 +132,9 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     votes: null,
     elo: 0,
     votesReceived: 0,
+    duels: null,
+    shares: 0,
+    sharedByMe: false,
     level: 0,
     career: stats(undefined),
     winner: null,
@@ -187,6 +198,7 @@ export function participantRow(
   participant: ContestParticipantDoc,
   status: ContestStatusWire,
   career: Career,
+  viewerUid: string | null = null,
 ): ParticipantRowWire {
   return {
     petUid: participant.petId,
@@ -205,6 +217,8 @@ export function participantRow(
     votesReceived: status === "CLOSED" ?
       participant.votesReceived :
       participant.votesReceivedSnapshot ?? 0,
+    duels: frozenDuels(participant, status),
+    ...shareWire(participant, viewerUid),
     rank: participant.rank,
     registrationIndex: participant.registrationIndex,
     level: career.level,
@@ -351,5 +365,30 @@ export function dailyVotesWire(
     remaining: remainingVotesToday(votesPerDay, day, capacity),
     capacity,
     secondsToReset: secondsToReset(nowMillis, startAt),
+  };
+}
+
+/**
+ * Les duels qui vont avec les votes reçus affichés : les vifs une fois le
+ * concours clos, l'instantané de 18 h avant. Sans instantané — une
+ * participation née avant le champ —, null plutôt qu'une part fausse.
+ */
+export function frozenDuels(
+  participant: ContestParticipantDoc,
+  status: ContestStatusWire,
+): number | null {
+  if (status === "CLOSED") return participant.duels;
+  return participant.duelsSnapshot ?? null;
+}
+
+/** Voir `ShareWire` : le propriétaire allume son bouton sans compter. */
+export function shareWire(
+  participant: ContestParticipantDoc,
+  viewerUid: string | null,
+): ShareWire {
+  const sharedBy = participant.sharedBy ?? [];
+  return {
+    shares: sharedBy.filter((uid) => uid !== participant.ownerUid).length,
+    sharedByMe: viewerUid != null && sharedBy.includes(viewerUid),
   };
 }
