@@ -61,6 +61,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     return {
       role: "PARTICIPANT",
       rank: participant.rank,
+      rankPrevious: participant.rankPrevious ?? null,
       registrationIndex: participant.registrationIndex,
       pet: {
         petUid: participant.petId,
@@ -96,6 +97,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
     return {
       role: "JUDGE",
       rank: judge.rank,
+      rankPrevious: null,
       registrationIndex: judge.registrationIndex,
       pet: null,
       bearer: {
@@ -126,6 +128,7 @@ export function meWire(contest: ContestDoc, source: MeSource): ContestMeWire {
   return {
     role: "NONE",
     rank: null,
+    rankPrevious: null,
     registrationIndex: null,
     pet: null,
     bearer: null,
@@ -220,6 +223,7 @@ export function participantRow(
     duels: frozenDuels(participant, status),
     ...shareWire(participant, viewerUid),
     rank: participant.rank,
+    rankPrevious: participant.rankPrevious ?? null,
     registrationIndex: participant.registrationIndex,
     level: career.level,
     career: stats(career.stats),

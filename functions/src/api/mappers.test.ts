@@ -127,6 +127,7 @@ test("sans inscription, le bloc me est vide et ne ment pas", () => {
   assert.deepEqual(meWire(contest(), NO_ME), {
     role: "NONE",
     rank: null,
+    rankPrevious: null,
     registrationIndex: null,
     pet: null,
     bearer: null,
@@ -298,6 +299,7 @@ test("les lignes sortent avec les noms de champs de l'app", () => {
     shares: 0,
     sharedByMe: false,
     rank: 2,
+    rankPrevious: 3,
     registrationIndex: 8,
     // Le niveau et le palmarès du jour, lus sur l'animal : la ligne dit ce
     // qu'il est maintenant, exactement comme sa fiche.

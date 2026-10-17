@@ -67,6 +67,8 @@ export interface ContestMeVotesWire {
 export interface ContestMeWire {
   role: MeRole;
   rank: number | null;
+  /** Le rang du 18 h d'avant, pour la flèche ; null pour un juré. */
+  rankPrevious: number | null;
   registrationIndex: number | null;
   pet: ContestMePetWire | null;
   bearer: ContestBearerWire | null;
@@ -147,6 +149,8 @@ export interface ParticipantRowWire {
   shares: number;
   sharedByMe: boolean;
   rank: number | null;
+  /** Le rang du 18 h d'avant : de quoi dire si l'animal monte ou descend. */
+  rankPrevious: number | null;
   registrationIndex: number;
   level: number;
   career: StatsWire;
