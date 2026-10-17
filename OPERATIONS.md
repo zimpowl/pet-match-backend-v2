@@ -282,8 +282,19 @@ n'existe ne peut que se tromper.
 ## 8. Déployer
 
 ```bash
-npx firebase deploy --only functions --project <projet>
+npm run deploy:safe -- <projet>     # dans functions/
 ```
+
+**Toujours ce script, jamais `firebase deploy` nu.** Il supprime les révisions
+sans trafic avant et après le déploiement, puis vérifie que chaque service a une
+révision prête. Sans lui, le quota CPU sature en pleine bascule et des fonctions
+restent en 503 (panne du 2026-10-17 : connexion et vote coupés). Une seule
+fonction : `npx firebase deploy --only functions:<nom> --project <projet>`,
+qui ne crée qu'une révision.
+
+Remède durable : demander l'augmentation du quota « Total allowable CPU per
+project per region » de `us-central1` dans la console Google Cloud (IAM et
+administration → Quotas).
 
 Le `predeploy` relance `lint` puis `build` : une erreur de lint arrête le
 déploiement avant qu'il ne commence.
@@ -318,7 +329,8 @@ comm -23 /tmp/all.txt /tmp/keep.txt | while read r; do
 done
 ```
 
-À faire tous les dix à quinze déploiements, avant que le quota ne morde.
+`deploy:safe` le fait à chaque déploiement ; la commande ci-dessus reste pour
+nettoyer à la main.
 
 **L'autorisation d'invocation ne se pose qu'à la création.** Firebase accorde
 `allUsers / roles/run.invoker` quand il **crée** une fonction HTTP, jamais quand
