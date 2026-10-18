@@ -53,7 +53,10 @@ echo "Nettoyage avant déploiement…"
 prune
 
 echo "Déploiement sur $PROJECT…"
-npx firebase deploy --only functions --project "$PROJECT" --non-interactive
+# Un échec de Firebase n'arrête pas le script : le nettoyage et la vérification
+# qui suivent sont justement ce qui dit quoi relancer.
+deployed=0
+npx firebase deploy --only functions --project "$PROJECT" --non-interactive || deployed=$?
 
 echo "Nettoyage après déploiement…"
 prune
@@ -64,5 +67,9 @@ if [ -n "$broken" ]; then
   echo "$broken"
   echo "Les redéployer un par un : npx firebase deploy --only functions:<nom> --project $PROJECT"
   exit 1
+fi
+if [ "$deployed" -ne 0 ]; then
+  echo "✗ Firebase a signalé des erreurs : voir plus haut quelles fonctions relancer."
+  exit "$deployed"
 fi
 echo "✓ Tous les services sont prêts."
