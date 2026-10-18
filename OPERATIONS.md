@@ -384,3 +384,20 @@ et répond 503.
   aucun geste ne la retire avant terme, et rien ne prévient à la levée.
 - **Aucun rattrapage si l'app est désinstallée.** Sans jeton, la notification se
   perd, et rien ne la rejoue au retour.
+
+## 9. Les miniatures des photos
+
+L'extension **Resize Images** (`firebase.json` → `extensions`, réglages dans
+`extensions/storage-resize-images.env`) tire de chaque `images/{uid}/{nom}` deux
+miniatures WebP : `images/{uid}/thumbs/{nom}_640x640.webp` et `_1280x1280`. Les
+originaux restent. Les apps calculent l'adresse de la miniature (`PhotoUrls`
+dans le module partagé) et retombent sur l'original tant qu'elle manque.
+
+- Elle tourne en Cloud Functions de 1re génération : elle ne pèse pas sur le
+  quota CPU de Cloud Run.
+- La règle `images/{uid}/thumbs/{file}` (`storage.rules`) les rend lisibles
+  sans jeton ; personne ne les écrit depuis le client.
+- Elle ne rattrape pas les photos déjà en ligne. Pour ça :
+  `bash functions/scripts/backfill-thumbs.sh <bucket>` — sans risque à relancer,
+  il ne traite que les photos sans miniature et garde leur jeton.
+- Déployer : `npx firebase deploy --only extensions,storage --project <projet>`.
