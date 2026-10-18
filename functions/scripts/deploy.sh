@@ -35,9 +35,10 @@ prune() {
     --format="value(metadata.name)" | sort -u > "$all"
   dead="$(comm -23 "$all" "$kept")"
   echo "→ $(echo "$dead" | sed '/^$/d' | wc -l | tr -d ' ') révision(s) sans trafic à supprimer"
-  for revision in $dead; do
-    gcloud run revisions delete "$revision" --region "$REGION" --project "$PROJECT" --quiet >/dev/null
-  done
+  # En parallèle, et sans s'arrêter sur une révision déjà partie : Cloud Run
+  # en ramasse lui-même pendant qu'on nettoie.
+  echo "$dead" | sed '/^$/d' | xargs -P 8 -I{} \
+    gcloud run revisions delete {} --region "$REGION" --project "$PROJECT" --quiet >/dev/null 2>&1 || true
   rm -f "$kept" "$all"
 }
 
