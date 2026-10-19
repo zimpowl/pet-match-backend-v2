@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "pet-match---debug"
+  },
+  "targets": {},
+  "etags": {
+    "pet-match---debug": {
+      "extensionInstances": {
+        "storage-resize-images": "bc5a045db5acc2c6661e70178693615239bf2731866c861ca1cb3fd4090c86fc"
+      }
+    },
+    "pet-match-30417": {
+      "extensionInstances": {
+        "storage-resize-images": "e30b0eb9ec4613a8d06f88c6714526280cc58566b34fdbff7635769a467e4c52"
+      }
+    }
   }
 }
