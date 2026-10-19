@@ -59,6 +59,39 @@ npm run lint
 Le reste — émulateur, seed, outils d'administration, déploiement — est dans
 `OPERATIONS.md`.
 
+## Instagram : le Reel du podium
+
+Le script vit à côté des modèles Instagram, dans l'app :
+`~/AndroidStudioProjects/pet-match/store-assets/instagram/modeles/reel_podium.py`.
+Il lit l'API publique de **prod** (lecture seule, rien n'est écrit en base) et
+fabrique le Reel du podium d'un concours terminé.
+
+```bash
+cd ~/AndroidStudioProjects/pet-match/store-assets/instagram/modeles
+python3 reel_podium.py                 # le dernier concours terminé
+python3 reel_podium.py Automne Sieste  # les concours nommés
+python3 reel_podium.py --tous          # tous les concours terminés
+```
+
+| Image | Durée | Contenu |
+|---|---|---|
+| Titre | 2,8 s | « Résultats », le thème, puis la ligne de l'app : « Terminé le JJ/MM · patte N · maillet N » |
+| 3e, 2e | 3,2 s chacune | la carte, centrée, avec un léger zoom |
+| 1er | 4,2 s | la carte du vainqueur |
+| Fin | 3,2 s | le concours qui prend les inscriptions : « Commence le JJ/MM · patte N · maillet N », la clôture des inscriptions, « Lien en bio » |
+
+- **Sortie** : `sortie/<date>/reel-podium-<thème>.mp4` (1080 × 1920, H.264), et
+  les images dans `sortie/<date>/reel-podium-<thème>/`.
+- **Il faut** Google Chrome (rendu des modèles) et `ffmpeg` (`brew install ffmpeg`).
+- **Sans musique** : ajouter un son tendance dans Instagram au moment de publier.
+- La fin est sautée s'il n'y a aucun concours en `DRAFT`. Un concours sans
+  podium (aucun rang 1 à 3 avec photo) est ignoré, avec un message.
+- Les durées se règlent en haut du script (`TITLE`, `CARD`, `WINNER`, `END`) ;
+  le dessin des images est dans `modeles.html` (modèles `titre` et `carte`).
+
+Les autres visuels Instagram (stories, autres Reels) passent par `publier.py`,
+dans le même dossier ; le calendrier est dans `store-assets/instagram/STRATEGIE.md`.
+
 ---
 
 ## Points à ne pas perdre de vue
