@@ -20,20 +20,16 @@ import { ONBOARDING, readOnboarding } from "../core/onboarding";
 /** Les textes de l'app au jour du premier tirage : un point de départ. */
 const SEED = [
   {
-    title: "Un thème, sept jours",
-    body:
-      "Chaque dimanche, un nouveau concours ouvre. " +
-      "Une photo de votre animal, et il entre en lice.",
+    title: "Inscrivez votre compagnon",
+    body: "Chaque semaine, un nouveau thème. Une photo de votre chien ou de votre chat suffit pour participer.",
   },
   {
-    title: "Vous départagez",
-    body:
-      "Deux photos, une question, votre choix. " +
-      "C'est le jury qui fait le classement, et le jury c'est vous.",
+    title: "Votez",
+    body: "Deux photos, un choix. Votez pour vos préférées : le jury, c'est vous.",
   },
   {
-    title: "Dimanche à 18 h",
-    body: "Le classement tombe, et chaque animal reçoit sa carte. Puis tout recommence.",
+    title: "Découvrez la star",
+    body: "Résultats chaque dimanche à 18 h. Votre compagnon sera-t-il sur le podium ?",
   },
 ] as const;
 
