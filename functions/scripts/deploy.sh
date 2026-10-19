@@ -72,4 +72,11 @@ if [ "$deployed" -ne 0 ]; then
   echo "✗ Firebase a signalé des erreurs : voir plus haut quelles fonctions relancer."
   exit "$deployed"
 fi
+# Un service épinglé sur une ancienne révision ne reçoit jamais la nouvelle
+# (cela arrive après un incident). On le remet sur la dernière.
+for svc in $(gcloud run services list --project "$PROJECT" --region "$REGION" \
+    --format="csv[no-heading](metadata.name,status.traffic[0].latestRevision)" | awk -F, '$2 != "True" { print $1 }'); do
+  echo "→ $svc était épinglé : trafic remis sur la dernière révision"
+  gcloud run services update-traffic "$svc" --to-latest --project "$PROJECT" --region "$REGION" --quiet >/dev/null
+done
 echo "✓ Tous les services sont prêts."
