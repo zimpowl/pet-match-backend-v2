@@ -21,19 +21,15 @@ import { ONBOARDING, readOnboarding } from "../core/onboarding";
 const SEED = [
   {
     title: "Un thème, une photo",
-    body:
-      "Chaque dimanche, un nouveau thème. " +
-      "Choisissez la photo de votre compagnon qui lui va le mieux, et il entre en lice.",
+    body: "Mettez à l'honneur votre animal avec sa plus belle photo et participez au concours.",
   },
   {
     title: "Arbitrez les duels",
-    body: "Deux compagnons, une seule place. Choisissez votre favori : chaque vote fait bouger le classement.",
+    body: "Soutenez votre favori et bousculez le classement à chaque vote.",
   },
   {
     title: "Collectionnez les trophées",
-    body:
-      "Or, argent, bronze : chaque podium rejoint son palmarès. " +
-      "De Novice à Légende, écrivez la carrière de votre compagnon.",
+    body: "Étoffez son palmarès. De Novice à Légende, bâtissez la carrière de votre compagnon.",
   },
 ] as const;
 
