@@ -79,7 +79,7 @@ python3 podium.py --tous          # tous les concours terminés
 | 1 | 2,8 s | « Résultats », le thème, puis la ligne de l'app : « Terminé le JJ/MM · patte N · maillet N » |
 | 2, 3 | 3,2 s chacune | la carte du 3e, puis du 2e, centrée |
 | 4 | 4,2 s | la carte du vainqueur |
-| 5 | 3,2 s | le concours qui prend les inscriptions : « Commence le JJ/MM · patte N · maillet N », la clôture des inscriptions, « Lien en bio » |
+| 5 | 3,2 s | le concours qui prend les inscriptions : « Clôture des inscriptions le JJ/MM à 18 h », « Lien en bio » |
 
 - **Sortie**, dans `sortie/<date>/podium-<thème>/` :
   - `reel.mp4` : 1080 × 1920, H.264, léger zoom et fondus ;
