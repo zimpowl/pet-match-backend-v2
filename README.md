@@ -59,35 +59,40 @@ npm run lint
 Le reste — émulateur, seed, outils d'administration, déploiement — est dans
 `OPERATIONS.md`.
 
-## Instagram : le Reel du podium
+## Instagram : le podium (Reel + carrousel)
 
 Le script vit à côté des modèles Instagram, dans l'app :
-`~/AndroidStudioProjects/pet-match/store-assets/instagram/modeles/reel_podium.py`.
+`~/AndroidStudioProjects/pet-match/store-assets/instagram/modeles/podium.py`.
 Il lit l'API publique de **prod** (lecture seule, rien n'est écrit en base) et
-fabrique le Reel du podium d'un concours terminé.
+fabrique, pour un concours terminé, **le Reel et le carrousel** du podium, avec
+les mêmes images.
 
 ```bash
 cd ~/AndroidStudioProjects/pet-match/store-assets/instagram/modeles
-python3 reel_podium.py                 # le dernier concours terminé
-python3 reel_podium.py Automne Sieste  # les concours nommés
-python3 reel_podium.py --tous          # tous les concours terminés
+python3 podium.py                 # le dernier concours terminé
+python3 podium.py Automne Sieste  # les concours nommés
+python3 podium.py --tous          # tous les concours terminés
 ```
 
-| Image | Durée | Contenu |
+| Page | Reel | Contenu |
 |---|---|---|
-| Titre | 2,8 s | « Résultats », le thème, puis la ligne de l'app : « Terminé le JJ/MM · patte N · maillet N » |
-| 3e, 2e | 3,2 s chacune | la carte, centrée, avec un léger zoom |
-| 1er | 4,2 s | la carte du vainqueur |
-| Fin | 3,2 s | le concours qui prend les inscriptions : « Commence le JJ/MM · patte N · maillet N », la clôture des inscriptions, « Lien en bio » |
+| 1 | 2,8 s | « Résultats », le thème, puis la ligne de l'app : « Terminé le JJ/MM · patte N · maillet N » |
+| 2, 3 | 3,2 s chacune | la carte du 3e, puis du 2e, centrée |
+| 4 | 4,2 s | la carte du vainqueur |
+| 5 | 3,2 s | le concours qui prend les inscriptions : « Commence le JJ/MM · patte N · maillet N », la clôture des inscriptions, « Lien en bio » |
 
-- **Sortie** : `sortie/<date>/reel-podium-<thème>.mp4` (1080 × 1920, H.264), et
-  les images dans `sortie/<date>/reel-podium-<thème>/`.
+- **Sortie**, dans `sortie/<date>/podium-<thème>/` :
+  - `reel.mp4` : 1080 × 1920, H.264, léger zoom et fondus ;
+  - `carrousel-1.png` … `carrousel-5.png` : 1080 × 1350, dans l'ordre du carrousel ;
+  - `reel/` : les images du Reel.
 - **Il faut** Google Chrome (rendu des modèles) et `ffmpeg` (`brew install ffmpeg`).
-- **Sans musique** : ajouter un son tendance dans Instagram au moment de publier.
-- La fin est sautée s'il n'y a aucun concours en `DRAFT`. Un concours sans
+- **Le dimanche soir** : le carrousel à 18 h 15, le Reel vers 20 h, en décochant
+  « Afficher dans la grille du profil » pour ne pas doubler les résultats.
+- **Sans musique** : ajouter un son tendance dans Instagram au moment de publier le Reel.
+- La page 5 est sautée s'il n'y a aucun concours en `DRAFT`. Un concours sans
   podium (aucun rang 1 à 3 avec photo) est ignoré, avec un message.
 - Les durées se règlent en haut du script (`TITLE`, `CARD`, `WINNER`, `END`) ;
-  le dessin des images est dans `modeles.html` (modèles `titre` et `carte`).
+  le dessin des pages est dans `modeles.html` (modèles `titre` et `carte`).
 
 Les autres visuels Instagram (stories, autres Reels) passent par `publier.py`,
 dans le même dossier ; le calendrier est dans `store-assets/instagram/STRATEGIE.md`.
