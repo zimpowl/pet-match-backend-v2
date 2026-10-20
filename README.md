@@ -76,7 +76,7 @@ python3 podium.py --tous          # tous les concours terminés
 
 | Page | Reel | Contenu |
 |---|---|---|
-| 1 | 2,8 s | « Résultats », le thème, puis la ligne de l'app : « Terminé le JJ/MM · patte N · maillet N » |
+| 1 | 2,8 s | Reel : « Résultats », le thème, « Terminé le JJ/MM · patte N · maillet N ». Carrousel : la photo du vainqueur en plein cadre, « Résultats » et le thème dans le fondu noir |
 | 2, 3 | 3,2 s chacune | la carte du 3e, puis du 2e, centrée |
 | 4 | 4,2 s | la carte du vainqueur |
 | 5 | 3,2 s | le concours qui prend les inscriptions : « Clôture des inscriptions le JJ/MM à 18 h », « Lien en bio » |
