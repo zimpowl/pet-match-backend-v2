@@ -23,7 +23,8 @@
     "retention": "tsc && node lib/admin/retention.js",
     "unfreeze": "tsc && node lib/admin/unfreeze.js",
     "anonymous": "tsc && node lib/admin/anonymous.js",
-    "onboarding": "tsc && node lib/admin/onboarding.js"
+    "onboarding": "tsc && node lib/admin/onboarding.js",
+    "stats": "tsc && node lib/admin/stats.js"
   },
   "engines": {
     "node": "24"
